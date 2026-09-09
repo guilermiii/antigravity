@@ -93,6 +93,13 @@ body {
   color: var(--text-muted);
 }
 
+.navbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .api-badge {
   display: flex;
   align-items: center;
@@ -136,6 +143,12 @@ body {
   gap: 1rem;
   margin-bottom: 1.5rem;
   flex-wrap: wrap;
+}
+
+.actions-buttons {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .search-box {
@@ -576,17 +589,127 @@ tbody tr:hover {
 
 /* Responsive */
 @media (max-width: 640px) {
+  .container {
+    padding: 1.25rem 0.85rem;
+  }
+
+  .navbar {
+    padding: 0.85rem 1rem;
+  }
+
+  .navbar-inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .navbar-controls {
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
   .actions-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 0.75rem;
   }
+
+  .actions-buttons {
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .actions-buttons .btn {
+    flex: 1;
+  }
+
   .search-box {
     max-width: 100%;
   }
+
   .date-col {
     display: none;
   }
+
+  .table-wrapper table {
+    min-width: 600px;
+  }
+
+  .modal-overlay {
+    padding: 0.5rem;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 94vh;
+  }
+
+  .form-body-scroll,
+  .detail-body {
+    padding: 1rem;
+    max-height: 75vh;
+  }
+
+  .modal-header {
+    padding: 1rem 1.25rem;
+  }
+
+  .modal-footer {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    bottom: 1rem;
+    align-items: stretch;
+  }
+
+  .toast {
+    min-width: unset;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .form-grid-2,
+  .form-grid-3,
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-item.full-width {
+    grid-column: span 1;
+  }
 }
+
+@media (max-width: 480px) {
+  .brand-title {
+    font-size: 1.05rem;
+  }
+
+  .brand-subtitle {
+    display: none;
+  }
+
+  .user-profile-email {
+    display: none;
+  }
+
+  .auth-buttons-group.compact .btn-oauth {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.78rem;
+  }
+}
+
 
 /* Formulário Expandido e Modais */
 .modal-form-large {
@@ -756,16 +879,8 @@ tbody tr:hover {
   background-color: #eff6ff;
 }
 
-@media (max-width: 640px) {
-  .form-grid-2, .form-grid-3, .detail-grid {
-    grid-template-columns: 1fr;
-  }
-  .detail-item.full-width {
-    grid-column: span 1;
-  }
-}
-
 /* =========================================================
+
    OAuth2 & Authentication UI Components
    ========================================================= */
 

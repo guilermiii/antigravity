@@ -19,7 +19,7 @@ export default function Navbar({ totalUsers = 0, isOnline = true }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div className="navbar-controls">
           <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
             <strong>{totalUsers}</strong> {totalUsers === 1 ? 'usuário' : 'usuários'}
           </span>

@@ -13,7 +13,17 @@ export default function UserDetailModal({ isOpen, user, onClose }) {
       <div className="modal-content modal-detail" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="detail-header-info">
-            <div className="avatar large">{getInitials(user.nome, user.sobrenome)}</div>
+            {user.avatar_url ? (
+              <img
+                src={user.avatar_url}
+                alt={user.nome}
+                className="avatar large"
+                style={{ objectFit: 'cover' }}
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="avatar large">{getInitials(user.nome, user.sobrenome)}</div>
+            )}
             <div>
               <h2 className="modal-title">Detalhes do Usuário</h2>
               <span className="user-id-badge">ID #{user.id}</span>

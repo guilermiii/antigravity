@@ -163,7 +163,7 @@ function AppContent() {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div className="actions-buttons">
             <button
               className="btn btn-secondary"
               onClick={fetchUsers}
