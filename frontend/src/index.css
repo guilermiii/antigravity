@@ -765,3 +765,130 @@ tbody tr:hover {
   }
 }
 
+/* =========================================================
+   OAuth2 & Authentication UI Components
+   ========================================================= */
+
+.auth-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.auth-buttons-group.compact {
+  gap: 0.4rem;
+}
+
+.btn-oauth {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid transparent;
+  text-decoration: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.btn-oauth.btn-github {
+  background-color: #24292f;
+  color: #ffffff;
+  border-color: #24292f;
+}
+
+.btn-oauth.btn-github:hover {
+  background-color: #1b1f23;
+  border-color: #1b1f23;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.btn-oauth.btn-google {
+  background-color: #ffffff;
+  color: #3c4043;
+  border-color: #dadce0;
+}
+
+.btn-oauth.btn-google:hover {
+  background-color: #f8f9fa;
+  border-color: #c6c9cc;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
+}
+
+/* Perfil do Usuário Autenticado na Navbar */
+.user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #f1f5f9;
+  padding: 0.3rem 0.6rem 0.3rem 0.4rem;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+.user-avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--primary, #3b82f6);
+}
+
+.user-avatar-placeholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-info-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.user-profile-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-main, #1e293b);
+}
+
+.user-profile-email {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-logout {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.btn-logout:hover {
+  color: #ef4444;
+  background-color: #fee2e2;
+}
+
+

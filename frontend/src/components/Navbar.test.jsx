@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import Navbar from './Navbar';
+import * as AuthContextModule from '../context/AuthContext';
 
 describe('Navbar Component Tests', () => {
   it('renderiza o título da aplicação', () => {
@@ -24,5 +25,38 @@ describe('Navbar Component Tests', () => {
 
     rerender(<Navbar totalUsers={0} isOnline={false} />);
     expect(screen.getByText('API Desconectada')).toBeInTheDocument();
+  });
+
+  it('exibe botões de login OAuth quando não autenticado', () => {
+    render(<Navbar totalUsers={0} isOnline={true} />);
+    expect(screen.getByText('GitHub')).toBeInTheDocument();
+    expect(screen.getByText('Google')).toBeInTheDocument();
+  });
+
+  it('exibe perfil do usuário e botão de logout quando autenticado', () => {
+    const mockLogout = vi.fn();
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      user: {
+        id: 1,
+        nome: 'Guilherme',
+        email: 'guilherme@example.com',
+        avatar_url: 'https://avatars.githubusercontent.com/u/1',
+      },
+      token: 'jwt_token',
+      isAuthenticated: true,
+      isLoading: false,
+      loginWithProvider: vi.fn(),
+      logout: mockLogout,
+      refreshUser: vi.fn(),
+    });
+
+    render(<Navbar totalUsers={10} isOnline={true} />);
+    expect(screen.getByText('Guilherme')).toBeInTheDocument();
+    expect(screen.getByText('guilherme@example.com')).toBeInTheDocument();
+
+    const logoutBtn = screen.getByRole('button', { name: /encerrar sessão/i });
+    expect(logoutBtn).toBeInTheDocument();
+    logoutBtn.click();
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 });

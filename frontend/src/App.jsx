@@ -7,9 +7,11 @@ import UserFormModal from './components/UserFormModal';
 import UserDetailModal from './components/UserDetailModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import Toast from './components/Toast';
+import { AuthProvider } from './context/AuthContext';
 
-export default function App() {
+function AppContent() {
   const [users, setUsers] = useState([]);
+
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -221,3 +223,12 @@ export default function App() {
     </>
   );
 }
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
