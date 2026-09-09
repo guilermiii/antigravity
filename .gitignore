@@ -40,3 +40,5 @@ blob-report/
 # Environment & IDE
 .env
 .DS_Store
+.obsidian/
+
