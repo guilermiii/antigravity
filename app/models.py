@@ -1,4 +1,16 @@
-from sqlalchemy import CheckConstraint, Column, DateTime, Integer, String, func
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.orm import relationship
+
 from app.database import Base
 
 
@@ -44,4 +56,39 @@ class User(Base):
     cep = Column(String(20), nullable=True)
     pais = Column(String(100), nullable=True, default="Brasil")
     escolaridade = Column(String(100), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    role = Column(String(20), default="user", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    oauth_accounts = relationship(
+        "OAuthAccount",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+
+class OAuthAccount(Base):
+    """Mapeamento de contas de autenticação externa OAuth 2.0 (GitHub, Google)."""
+
+    __tablename__ = "oauth_accounts"
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_user_id", name="uq_provider_user_id"),
+        CheckConstraint("provider IN ('github', 'google')", name="check_provider_valido"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    provider = Column(String(50), nullable=False)
+    provider_user_id = Column(String(100), nullable=False)
+    provider_email = Column(String(150), nullable=True)
+    avatar_url = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="oauth_accounts")
+

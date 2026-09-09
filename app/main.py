@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth.router import router as auth_router
 from app.database import Base, engine, get_db
 from app.models import User
 from app.schemas import UserCreate, UserResponse, UserUpdate
@@ -26,13 +27,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="API de Cadastro de Usuários",
+    title="API de Cadastro de Usuários & Autenticação OAuth2",
     description=(
-        "Sistema completo de CRUD de usuários com validações no Backend (Pydantic v2), "
-        "validações nativas no banco de dados (PostgreSQL CHECK Constraints), "
-        "migrações versionadas com Alembic e proteção integral contra SQL Injection."
+        "Sistema completo de CRUD de usuários e autenticação federada OAuth 2.0 (GitHub e Google) com JWT, "
+        "validações no Backend (Pydantic v2), validações nativas no banco de dados (PostgreSQL CHECK Constraints), "
+        "migrações versionadas com Alembic e proteção integral contra SQL Injection e Script Injection (XSS)."
     ),
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
@@ -44,6 +45,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Inclusão do roteador de autenticação OAuth2 & JWT
+app.include_router(auth_router)
+
 
 
 @app.get(
