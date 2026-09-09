@@ -1,31 +1,34 @@
-# 📋 Contexto Geral do Projeto: Sistema de Cadastro de Usuários (CRUD)
+# 📋 Contexto Geral do Projeto: Sistema de Cadastro de Usuários & Autenticação OAuth2 (CRUD)
 
 > **Documento de Contexto e Arquitetura**  
 > **Última atualização:** 09 de Setembro de 2026  
-> **Status:** Concluído, testado com 100% de aprovação (TDD), com validações nativas no banco e em execução via Docker Compose.
+> **Status:** Concluído, testado com 100% de aprovação (TDD), com autenticação OAuth2 (GitHub & Google), validações nativas no banco e em execução via Docker Compose.
 
 ---
 
 ## 1. 🎯 Visão Geral e Objetivo
 
-Este projeto é uma aplicação web fullstack com arquitetura moderna e containerizada para gerenciamento completo (**CRUD**) de cadastro de usuários. O sistema segue práticas estritas de modularidade, separação de responsabilidades, validação em duas camadas (Backend via Pydantic e Banco de Dados via PostgreSQL CHECK Constraints), migrações versionadas com Alembic, blindagem integral contra SQL Injection, persistência relacional, design de interface limpo (*clean design*) e cobertura de testes seguindo **TDD (Test-Driven Development)**.
+Este projeto é uma aplicação web fullstack com arquitetura moderna e containerizada para gerenciamento completo (**CRUD**) de cadastro de usuários e **autenticação federada OAuth 2.0 com suporte a GitHub e Google (Gmail)**. O sistema segue práticas estritas de modularidade, separação de responsabilidades, validação em duas camadas (Backend via Pydantic e Banco de Dados via PostgreSQL CHECK Constraints), migrações versionadas com Alembic, blindagem integral contra **SQL Injection**, **Script Injection (XSS)**, **CSRF / State Tampering** e **Ataques contra JWT (Alg: None)**, persistência relacional, design de interface limpo (*clean design*) e cobertura de testes seguindo **TDD (Test-Driven Development)**.
 
 ### 🛠️ Stack Tecnológica
 
 | Camada | Tecnologia | Descrição / Papel |
 |---|---|---|
 | **Backend** | Python 3.11 / FastAPI | Framework web de alta performance para criação de APIs REST assíncronas com OpenAPI 3.1. |
-| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional com consultas 100% parametrizadas e volume persistente. |
+| **Autenticação** | OAuth 2.0 / PyJWT / httpx | Fluxo de autorização federado com GitHub e Google, emissão de JWT (HS256) e State anti-CSRF com HMAC-SHA256. |
+| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional com consultas 100% parametrizadas, tabela relacional `oauth_accounts` e volume persistente. |
 | **Migrações** | Alembic 1.19 | Gerenciamento versionado e automatizado de DDL e restrições de integridade no banco. |
 | **Validação Backend**| Pydantic v2 / email-validator | Schemas com validação estrita de dados, algoritmo de CPF, formato de CEP e telefone. |
 | **Validação DB** | PostgreSQL CHECK Constraints | Restrições nativas de integridade de dados e validações regex executadas pela engine do banco. |
 | **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva com microinterações. |
+| **Gestão de Auth UI**| React AuthContext | Gerenciamento reativo de sessão, interceptação de token hash (`#token=`) e persistência. |
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
 | **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend e frontend com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 9 arquivos de testes (53 testes) cobrindo formatters, componentes, modais e integração de UI. |
-| **Testes Backend** | Python unittest | 17 testes unitários isolados validando regras de CPF, CEP, idade, schemas e anti-SQLi. |
-| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py`) e ponta a ponta (`test_e2e.py`). |
+| **Testes Frontend**| Vitest + React Testing Library | 10 arquivos de testes (58 testes) cobrindo formatters, componentes, botões OAuth, modais e integração de UI. |
+| **Testes Backend** | Python unittest | 46 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2 e testes de segurança (SQLi, XSS, CSRF, JWT). |
+| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py`), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py`). |
+
 
 ---
 

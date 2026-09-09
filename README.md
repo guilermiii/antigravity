@@ -1,6 +1,6 @@
-# Sistema de Cadastro de Usuários (FastAPI + PostgreSQL + React + Docker)
+# Sistema de Cadastro de Usuários & Autenticação OAuth2 (FastAPI + PostgreSQL + React + Docker)
 
-Aplicação web completa com operações de CRUD (Create, Read, Update, Delete) de usuários, persistência relacional em PostgreSQL com **validações nativas via CHECK Constraints**, migrações automatizadas com **Alembic**, frontend limpo e responsivo em **React 18 + Vite**, arquitetura à prova de **SQL Injection** e suíte completa de testes desenvolvida sob metodologia **TDD**.
+Aplicação web completa com operações de CRUD de usuários e **autenticação federada OAuth 2.0 (GitHub e Google/Gmail)** com tokens JWT, persistência relacional em PostgreSQL com **validações nativas via CHECK Constraints**, migrações versionadas com **Alembic**, frontend limpo e responsivo em **React 18 + Vite**, arquitetura blindada contra **SQL Injection**, **Script Injection (XSS)**, **CSRF / State Tampering** e **Ataques JWT (Alg: None)**, desenvolvida sob metodologia **TDD**.
 
 ---
 
@@ -8,19 +8,24 @@ Aplicação web completa com operações de CRUD (Create, Read, Update, Delete) 
 
 - **Backend**:
   - **Python 3.11**
-  - **FastAPI**: Framework web assíncrono, de alta performance e documentação OpenAPI 3.1 / Swagger integrada.
-  - **SQLAlchemy 2.0**: ORM moderno com consultas 100% parametrizadas (proteção contra SQL Injection).
+  - **FastAPI**: Framework web assíncrono de alta performance com OpenAPI 3.1 / Swagger integrada.
+  - **OAuth 2.0 & JWT (PyJWT)**: Autenticação federada com GitHub e Google, geração e validação de tokens JWT (HS256) e State anti-CSRF com HMAC-SHA256.
+  - **httpx**: Cliente HTTP assíncrono para comunicação backchannel segura com APIs de terceiros.
+  - **SQLAlchemy 2.0**: ORM moderno com consultas 100% parametrizadas (Prepared Statements anti-SQLi).
   - **Alembic**: Sistema de migrações versionadas e idempotentes do banco de dados.
   - **Pydantic v2**: Validação estrita de tipos, algoritmo de dígitos verificadores do CPF, CEP e telefone.
-  - **PostgreSQL 16**: Banco de dados relacional com restrições `CHECK`, `NOT NULL` e `UNIQUE`.
+  - **PostgreSQL 16**: Banco de dados relacional com restrições `CHECK`, `NOT NULL`, `UNIQUE` e tabela relacional `oauth_accounts`.
 - **Frontend**:
   - **React 18 + Vite 5**: SPA moderna, limpa e responsiva.
+  - **Auth Context**: Gerenciamento de sessão JWT, captura de token por fragmento de URL (`#token=...`) e persistência segura.
   - **Lucide React**: Ícones minimalistas.
-  - **Design Clean**: Tipografia Inter, seções estruturadas de dados, máscaras de formulário e modal de detalhes.
+  - **Design Clean**: Tipografia Inter, botões OAuth2 de GitHub e Google, badges de perfil na Navbar e modal de detalhes.
 - **DevOps & Testes**:
-  - **Docker & Docker Compose**: Orquestração completa de banco, backend e frontend com espelhamento de volume.
-  - **Vitest & React Testing Library**: Testes unitários e de integração da interface (53 testes).
-  - **Python unittest**: Testes unitários de schemas, validadores e penetração contra SQL Injection (17 testes).
+  - **Docker & Docker Compose**: Orquestração completa de banco, backend e frontend com reload instantâneo e espelhamento de volume.
+  - **Vitest & React Testing Library**: Testes unitários e de integração da interface (58 testes).
+  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2 e penetração contra SQLi, XSS, CSRF e tokens (46 testes).
+  - **Testes E2E Automatizados**: Dois scripts de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`).
+
 
 ---
 
@@ -167,32 +172,39 @@ curl -X DELETE "http://localhost:8000/users/1"
 ---
 
 ## 🧪 Como Executar os Testes (Metodologia TDD)
+ 
+ Com os containers em execução (`docker compose up -d`), execute todas as camadas da pirâmide de testes:
+ 
+-### 1. Testes Unitários e de Segurança do Backend (Python unittest)
+-Valida regras de negócio puras, algoritmos de validação, fluxos OAuth2, JWT e **blindagem contra SQL Injection, XSS, CSRF, Replay e Alg: None** (46 testes):
+-```bash
+-docker compose exec app python -m unittest discover -s tests
+-```
+-
+-Para executar especificamente a suíte de segurança:
+-```bash
+-docker compose exec app python -m unittest tests/test_auth_security.py
+-```
+-
+-### 2. Testes do Frontend (Vitest + React Testing Library)
+-Executa 58 testes cobrindo formatadores, botões OAuth2, perfil da Navbar, componentes, máscaras, modais e fluxo integrado da UI:
+-```bash
+-docker compose exec frontend npm test
+-```
+-
+-### 3. Testes de Integração da API Backend (FastAPI + PostgreSQL)
+-Valida todas as rotas HTTP, status codes (`200`, `201`, `400`, `404`, `422`, `204`) e persistência no banco:
+-```bash
+-docker compose exec app python test_app.py
+-```
+-
+-### 4. Testes Ponta a Ponta (E2E)
+-Validação completa do sistema ao vivo (Frontend, Backend, PostgreSQL e Autenticação):
+-```bash
+-python3 test_e2e.py
+-python3 test_e2e_auth.py
+-```
 
-Com os containers em execução (`docker compose up -d`), execute todas as camadas da pirâmide de testes:
-
-### 1. Testes Unitários do Backend (Python unittest)
-Valida regras de negócio puras, algoritmo de CPF, CEP, limites de idade e injeções de SQL:
-```bash
-docker compose exec app python -m unittest discover -s tests
-```
-
-### 2. Testes do Frontend (Vitest + React Testing Library)
-Executa 53 testes cobrindo formatadores, componentes, máscaras, modais (criação, edição, detalhes, exclusão) e fluxo integrado da UI:
-```bash
-docker compose exec frontend npm test
-```
-
-### 3. Testes de Integração da API Backend (FastAPI + PostgreSQL)
-Valida todas as rotas HTTP, status codes (`200`, `201`, `400`, `404`, `422`, `204`) e persistência no banco:
-```bash
-python3 test_app.py
-```
-
-### 4. Testes Ponta a Ponta (E2E)
-Executa a validação completa da comunicação entre Frontend (:3000), Backend (:8000) e PostgreSQL (:5432):
-```bash
-python3 test_e2e.py
-```
 
 ---
 
