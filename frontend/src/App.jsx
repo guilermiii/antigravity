@@ -4,6 +4,7 @@ import { api } from './services/api';
 import Navbar from './components/Navbar';
 import UserTable from './components/UserTable';
 import UserFormModal from './components/UserFormModal';
+import UserDetailModal from './components/UserDetailModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import Toast from './components/Toast';
 
@@ -17,6 +18,9 @@ export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [detailUser, setDetailUser] = useState(null);
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
@@ -56,15 +60,26 @@ export default function App() {
     fetchUsers();
   }, []);
 
-  // Filtragem de busca
+  // Filtragem de busca em múltiplos campos
   const filteredUsers = useMemo(() => {
     if (!searchTerm.trim()) return users;
     const term = searchTerm.toLowerCase();
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(term) ||
-        u.email.toLowerCase().includes(term)
-    );
+    return users.filter((u) => {
+      const nome = (u.nome || u.name || '').toLowerCase();
+      const sobrenome = (u.sobrenome || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      const cpf = (u.cpf || '').replace(/\D/g, '');
+      const cidade = (u.cidade || '').toLowerCase();
+      const termClean = term.replace(/\D/g, '');
+
+      return (
+        nome.includes(term) ||
+        sobrenome.includes(term) ||
+        email.includes(term) ||
+        cidade.includes(term) ||
+        (termClean.length > 0 && cpf.includes(termClean))
+      );
+    });
   }, [users, searchTerm]);
 
   // Ações de criação / edição
@@ -76,6 +91,11 @@ export default function App() {
   const handleOpenEdit = (user) => {
     setSelectedUser(user);
     setIsFormOpen(true);
+  };
+
+  const handleOpenDetail = (user) => {
+    setDetailUser(user);
+    setIsDetailOpen(true);
   };
 
   const handleSaveUser = async (formData) => {
@@ -91,7 +111,7 @@ export default function App() {
       } else {
         // Criar
         const created = await api.createUser(formData);
-        setUsers((prev) => [...prev, created]);
+        setUsers((prev) => [created, ...prev]);
         addToast('Usuário cadastrado com sucesso!', 'success');
       }
       setIsFormOpen(false);
@@ -135,7 +155,7 @@ export default function App() {
             <input
               type="text"
               className="search-input"
-              placeholder="Buscar por nome ou e-mail..."
+              placeholder="Buscar por nome, e-mail, CPF ou cidade..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -163,6 +183,7 @@ export default function App() {
           isLoading={isLoading}
           onEdit={handleOpenEdit}
           onDelete={handleOpenDelete}
+          onView={handleOpenDetail}
           onNewUser={handleOpenCreate}
         />
       </main>
@@ -174,6 +195,16 @@ export default function App() {
         onSave={handleSaveUser}
         initialData={selectedUser}
         isSubmitting={isSubmitting}
+      />
+
+      {/* Modal de Ficha Cadastral Completa */}
+      <UserDetailModal
+        isOpen={isDetailOpen}
+        user={detailUser}
+        onClose={() => {
+          setIsDetailOpen(false);
+          setDetailUser(null);
+        }}
       />
 
       {/* Modal de Confirmação de Exclusão */}
