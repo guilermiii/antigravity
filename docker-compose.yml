@@ -25,6 +25,8 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/users_db
+    volumes:
+      - .:/app
     depends_on:
       db:
         condition: service_healthy
