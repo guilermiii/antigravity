@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import App from './App';
@@ -20,14 +20,22 @@ describe('App Integration Tests (CRUD Flow)', () => {
   const initialUsers = [
     {
       id: 1,
-      name: 'Alice Silva',
+      nome: 'Alice',
+      sobrenome: 'Silva',
       email: 'alice@example.com',
+      telefone: '(11) 91111-2222',
+      cidade: 'São Paulo',
+      estado: 'SP',
       created_at: '2026-09-06T10:00:00Z',
     },
     {
       id: 2,
-      name: 'Bruno Souza',
+      nome: 'Bruno',
+      sobrenome: 'Souza',
       email: 'bruno@example.com',
+      telefone: '(21) 93333-4444',
+      cidade: 'Rio de Janeiro',
+      estado: 'RJ',
       created_at: '2026-09-06T10:30:00Z',
     },
   ];
@@ -52,7 +60,7 @@ describe('App Integration Tests (CRUD Flow)', () => {
     expect(screen.getByText('usuários')).toBeInTheDocument();
   });
 
-  it('filtra usuários em tempo real pelo campo de busca', async () => {
+  it('filtra usuários em tempo real pelo campo de busca por nome ou sobrenome', async () => {
     const user = userEvent.setup();
     render(<App />);
 
@@ -60,7 +68,7 @@ describe('App Integration Tests (CRUD Flow)', () => {
       expect(screen.getByText('Alice Silva')).toBeInTheDocument();
     });
 
-    const searchInput = screen.getByPlaceholderText(/buscar por nome ou e-mail/i);
+    const searchInput = screen.getByPlaceholderText(/buscar por nome/i);
     await user.type(searchInput, 'Bruno');
 
     expect(screen.getByText('Bruno Souza')).toBeInTheDocument();
@@ -70,12 +78,24 @@ describe('App Integration Tests (CRUD Flow)', () => {
     expect(screen.getByText('Alice Silva')).toBeInTheDocument();
   });
 
-  it('fluxo de cadastro: abre modal, preenche dados, salva e adiciona na tabela', async () => {
+  it('fluxo de cadastro: abre modal, preenche dados obrigatórios e opcionais, salva e adiciona na tabela', async () => {
     const user = userEvent.setup();
     const newUser = {
       id: 3,
-      name: 'Carolina Mendes',
+      nome: 'Carolina',
+      sobrenome: 'Mendes',
       email: 'carolina@example.com',
+      telefone: '(31) 98888-7777',
+      idade: 29,
+      genero: 'Feminino',
+      cpf: '52998224725',
+      rua: 'Rua das Flores',
+      numero: '100',
+      cidade: 'Belo Horizonte',
+      estado: 'MG',
+      cep: '30100-000',
+      pais: 'Brasil',
+      escolaridade: 'Ensino Superior',
       created_at: '2026-09-06T12:00:00Z',
     };
     api.createUser.mockResolvedValueOnce(newUser);
@@ -92,25 +112,51 @@ describe('App Integration Tests (CRUD Flow)', () => {
     expect(screen.getByRole('heading', { name: 'Novo Usuário' })).toBeInTheDocument();
 
     // Preenche formulário
-    await user.type(screen.getByLabelText(/nome completo/i), 'Carolina Mendes');
-    await user.type(screen.getByLabelText(/endereço de e-mail/i), 'carolina@example.com');
+    await user.type(screen.getByLabelText(/^Nome \*/i), 'Carolina');
+    await user.type(screen.getByLabelText(/^Sobrenome \*/i), 'Mendes');
+    await user.type(screen.getByLabelText(/^Endereço de E-mail \*/i), 'carolina@example.com');
     await user.click(screen.getByRole('button', { name: /cadastrar usuário/i }));
 
     await waitFor(() => {
-      expect(api.createUser).toHaveBeenCalledWith({
-        name: 'Carolina Mendes',
-        email: 'carolina@example.com',
-      });
+      expect(api.createUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          nome: 'Carolina',
+          sobrenome: 'Mendes',
+          email: 'carolina@example.com',
+        })
+      );
       expect(screen.getByText('Carolina Mendes')).toBeInTheDocument();
       expect(screen.getByText('Usuário cadastrado com sucesso!')).toBeInTheDocument();
     });
   });
 
-  it('fluxo de edição: altera os dados do usuário e atualiza a interface', async () => {
+  it('fluxo de visualização de detalhes do usuário', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
+    });
+
+    const detailBtns = screen.getAllByRole('button', { name: /ver detalhes/i });
+    await user.click(detailBtns[0]);
+
+    expect(screen.getByText('Detalhes do Usuário')).toBeInTheDocument();
+    expect(screen.getAllByText('Alice Silva').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('alice@example.com').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('(11) 91111-2222').length).toBeGreaterThanOrEqual(2);
+
+    const closeDetailBtns = screen.getAllByRole('button', { name: /fechar/i });
+    await user.click(closeDetailBtns[0]);
+    expect(screen.queryByText('Detalhes do Usuário')).not.toBeInTheDocument();
+  });
+
+  it('fluxo de edição: altera o sobrenome do usuário e atualiza a interface', async () => {
     const user = userEvent.setup();
     const updatedUser = {
       id: 1,
-      name: 'Alice Silva Editada',
+      nome: 'Alice',
+      sobrenome: 'Silva Editada',
       email: 'alice@example.com',
       created_at: '2026-09-06T10:00:00Z',
     };
@@ -122,22 +168,23 @@ describe('App Integration Tests (CRUD Flow)', () => {
       expect(screen.getByText('Alice Silva')).toBeInTheDocument();
     });
 
-    // Clica no botão de editar do primeiro usuário
     const editBtns = screen.getAllByRole('button', { name: /editar/i });
     await user.click(editBtns[0]);
 
     expect(screen.getByRole('heading', { name: 'Editar Usuário' })).toBeInTheDocument();
-    const nameInput = screen.getByLabelText(/nome completo/i);
-    await user.clear(nameInput);
-    await user.type(nameInput, 'Alice Silva Editada');
+    const sobrenomeInput = screen.getByLabelText(/^Sobrenome \*/i);
+    await user.clear(sobrenomeInput);
+    await user.type(sobrenomeInput, 'Silva Editada');
 
     await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
 
     await waitFor(() => {
-      expect(api.updateUser).toHaveBeenCalledWith(1, {
-        name: 'Alice Silva Editada',
-        email: 'alice@example.com',
-      });
+      expect(api.updateUser).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          sobrenome: 'Silva Editada',
+        })
+      );
       expect(screen.getByText('Alice Silva Editada')).toBeInTheDocument();
       expect(screen.getByText('Usuário atualizado com sucesso!')).toBeInTheDocument();
     });
@@ -154,7 +201,7 @@ describe('App Integration Tests (CRUD Flow)', () => {
     });
 
     const deleteBtns = screen.getAllByRole('button', { name: /excluir/i });
-    await user.click(deleteBtns[1]); // Clica no botão de excluir de Bruno
+    await user.click(deleteBtns[1]);
 
     expect(screen.getByText(/tem certeza que deseja excluir o usuário/i)).toBeInTheDocument();
 
@@ -181,8 +228,9 @@ describe('App Integration Tests (CRUD Flow)', () => {
 
     await user.click(screen.getByRole('button', { name: /novo usuário/i }));
     expect(screen.getByRole('heading', { name: 'Novo Usuário' })).toBeInTheDocument();
-    await user.type(screen.getByLabelText(/nome completo/i), 'Alice Clone');
-    await user.type(screen.getByLabelText(/endereço de e-mail/i), 'alice@example.com');
+    await user.type(screen.getByLabelText(/^Nome \*/i), 'Alice');
+    await user.type(screen.getByLabelText(/^Sobrenome \*/i), 'Clone');
+    await user.type(screen.getByLabelText(/^Endereço de E-mail \*/i), 'alice@example.com');
     await user.click(screen.getByRole('button', { name: /cadastrar usuário/i }));
 
     await waitFor(() => {

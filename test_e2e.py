@@ -89,32 +89,57 @@ def run_e2e_verification():
     assert allow_origin in [FRONTEND_URL, "*"], f"CORS incorreto: {allow_origin}"
     print(f"  ✔ CORS validado com sucesso! Access-Control-Allow-Origin: {allow_origin}")
 
-    # 4. Fluxo Completo de Usuário (Jornada do Usuário)
-    unique_suffix = abs(hash("e2e_test_user")) % 100000
+    # 4. Fluxo Completo de Usuário (Jornada do Usuário com Novos Campos)
+    unique_suffix = abs(hash("e2e_test_user_v2")) % 100000
     user_payload = {
-        "name": f"Usuario E2E {unique_suffix}",
+        "nome": "Usuario",
+        "sobrenome": f"E2E {unique_suffix}",
         "email": f"e2e_{unique_suffix}@example.com",
+        "telefone": "(11) 98888-7777",
+        "idade": 32,
+        "genero": "Outro",
+        "cpf": "52998224725",
+        "rua": "Rua das Flores",
+        "numero": "123",
+        "cidade": "Curitiba",
+        "estado": "PR",
+        "cep": "80010-000",
+        "pais": "Brasil",
+        "escolaridade": "Ensino Superior",
     }
 
     # 4.1 Criação
-    print(f"\n[E2E-4] Criando usuário via API ({user_payload['name']})...")
+    print(f"\n[E2E-4] Criando usuário via API ({user_payload['nome']} {user_payload['sobrenome']})...")
     status, created_user = http_post_json(f"{BACKEND_URL}/users/", user_payload)
     assert status == 201, f"Falha ao criar: {status}, {created_user}"
+    assert created_user["nome"] == user_payload["nome"]
+    assert created_user["sobrenome"] == user_payload["sobrenome"]
+    assert created_user["cidade"] == "Curitiba"
     user_id = created_user["id"]
     print(f"  ✔ Usuário criado com sucesso no PostgreSQL com ID #{user_id}.")
 
     # 4.2 Consulta
     print(f"\n[E2E-5] Consultando usuário persistido ID #{user_id}...")
-    status, fetched_user, _ = http_get(f"{BACKEND_URL}/users/{user_id}")
-    assert status == 200 and json.loads(fetched_user)["email"] == user_payload["email"]
-    print("  ✔ Usuário consultado com sucesso do banco de dados.")
+    status, fetched_raw, _ = http_get(f"{BACKEND_URL}/users/{user_id}")
+    fetched_user = json.loads(fetched_raw)
+    assert status == 200
+    assert fetched_user["email"] == user_payload["email"]
+    assert fetched_user["nome"] == user_payload["nome"]
+    assert fetched_user["sobrenome"] == user_payload["sobrenome"]
+    assert fetched_user["cpf"] == user_payload["cpf"]
+    print("  ✔ Usuário consultado com sucesso do banco de dados (todos os campos validados).")
 
     # 4.3 Atualização
-    print(f"\n[E2E-6] Atualizando nome do usuário ID #{user_id}...")
-    updated_name = f"{user_payload['name']} Atualizado"
-    status, updated_user = http_put_json(f"{BACKEND_URL}/users/{user_id}", {"name": updated_name})
-    assert status == 200 and updated_user["name"] == updated_name
-    print(f"  ✔ Nome atualizado para '{updated_name}'.")
+    print(f"\n[E2E-6] Atualizando sobrenome e cidade do usuário ID #{user_id}...")
+    updated_sobrenome = f"E2E {unique_suffix} Atualizado"
+    status, updated_user = http_put_json(
+        f"{BACKEND_URL}/users/{user_id}",
+        {"sobrenome": updated_sobrenome, "cidade": "Londrina"},
+    )
+    assert status == 200
+    assert updated_user["sobrenome"] == updated_sobrenome
+    assert updated_user["cidade"] == "Londrina"
+    print(f"  ✔ Dados atualizados com sucesso no PostgreSQL.")
 
     # 4.4 Exclusão
     print(f"\n[E2E-7] Excluindo usuário ID #{user_id}...")

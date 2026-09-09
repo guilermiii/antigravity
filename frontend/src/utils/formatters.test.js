@@ -1,23 +1,64 @@
 import { describe, it, expect } from 'vitest';
-import { getInitials, formatDate } from './formatters';
+import { getInitials, formatDate, formatCPF, formatPhone, formatCEP } from './formatters';
 
 describe('Formatters Unit Tests', () => {
   describe('getInitials', () => {
-    it('retorna iniciais para nome composto', () => {
-      expect(getInitials('Guilherme Morais')).toBe('GM');
-      expect(getInitials('Ana Paula Souza')).toBe('AS');
+    it('retorna iniciais para nome e sobrenome separados', () => {
+      expect(getInitials('Guilherme', 'Morais')).toBe('GM');
+      expect(getInitials('Ana', 'Souza')).toBe('AS');
     });
 
-    it('retorna primeiras duas letras se nome for único', () => {
-      expect(getInitials('Alice')).toBe('AL');
-      expect(getInitials('Bob')).toBe('BO');
+    it('retorna primeiras duas letras se apenas o nome for fornecido', () => {
+      expect(getInitials('Alice', '')).toBe('AL');
+      expect(getInitials('Bob', null)).toBe('BO');
     });
 
-    it('trata espaços extras e vazios', () => {
-      expect(getInitials('  Carlos   Silva  ')).toBe('CS');
-      expect(getInitials('')).toBe('U');
-      expect(getInitials(null)).toBe('U');
-      expect(getInitials(undefined)).toBe('U');
+    it('funciona com string única para compatibilidade', () => {
+      expect(getInitials('Carlos Silva')).toBe('CS');
+    });
+
+    it('trata valores nulos ou vazios', () => {
+      expect(getInitials('', '')).toBe('U');
+      expect(getInitials(null, null)).toBe('U');
+      expect(getInitials(undefined, undefined)).toBe('U');
+    });
+  });
+
+  describe('formatCPF', () => {
+    it('formata 11 dígitos numéricos no padrão 000.000.000-00', () => {
+      expect(formatCPF('52998224725')).toBe('529.982.247-25');
+      expect(formatCPF('529.982.247-25')).toBe('529.982.247-25');
+    });
+
+    it('retorna traço para nulo ou vazio', () => {
+      expect(formatCPF(null)).toBe('-');
+      expect(formatCPF('')).toBe('-');
+    });
+  });
+
+  describe('formatPhone', () => {
+    it('formata telefone celular de 11 dígitos', () => {
+      expect(formatPhone('11987654321')).toBe('(11) 98765-4321');
+    });
+
+    it('formata telefone fixo de 10 dígitos', () => {
+      expect(formatPhone('1134567890')).toBe('(11) 3456-7890');
+    });
+
+    it('retorna traço para nulo ou vazio', () => {
+      expect(formatPhone(null)).toBe('-');
+      expect(formatPhone('')).toBe('-');
+    });
+  });
+
+  describe('formatCEP', () => {
+    it('formata 8 dígitos numéricos no padrão 00000-000', () => {
+      expect(formatCEP('01310100')).toBe('01310-100');
+    });
+
+    it('retorna traço para nulo ou vazio', () => {
+      expect(formatCEP(null)).toBe('-');
+      expect(formatCEP('')).toBe('-');
     });
   });
 

@@ -8,14 +8,22 @@ describe('UserTable Component Tests', () => {
   const mockUsers = [
     {
       id: 1,
-      name: 'Maria Oliveira',
+      nome: 'Maria',
+      sobrenome: 'Oliveira',
       email: 'maria@example.com',
+      telefone: '(11) 98765-4321',
+      cidade: 'São Paulo',
+      estado: 'SP',
       created_at: '2026-09-06T10:00:00Z',
     },
     {
       id: 2,
-      name: 'João Santos',
+      nome: 'João',
+      sobrenome: 'Santos',
       email: 'joao@example.com',
+      telefone: null,
+      cidade: null,
+      estado: null,
       created_at: '2026-09-06T11:00:00Z',
     },
   ];
@@ -27,6 +35,7 @@ describe('UserTable Component Tests', () => {
         isLoading={true}
         onEdit={() => {}}
         onDelete={() => {}}
+        onView={() => {}}
         onNewUser={() => {}}
       />
     );
@@ -40,6 +49,7 @@ describe('UserTable Component Tests', () => {
         isLoading={false}
         onEdit={() => {}}
         onDelete={() => {}}
+        onView={() => {}}
         onNewUser={() => {}}
       />
     );
@@ -47,13 +57,14 @@ describe('UserTable Component Tests', () => {
     expect(screen.getByRole('button', { name: /cadastrar primeiro usuário/i })).toBeInTheDocument();
   });
 
-  it('renderiza os dados dos usuários na tabela', () => {
+  it('renderiza os dados dos usuários na tabela com nome e sobrenome', () => {
     render(
       <UserTable
         users={mockUsers}
         isLoading={false}
         onEdit={() => {}}
         onDelete={() => {}}
+        onView={() => {}}
         onNewUser={() => {}}
       />
     );
@@ -61,14 +72,16 @@ describe('UserTable Component Tests', () => {
     expect(screen.getByText('Maria Oliveira')).toBeInTheDocument();
     expect(screen.getByText('maria@example.com')).toBeInTheDocument();
     expect(screen.getByText('MO')).toBeInTheDocument(); // Iniciais
+    expect(screen.getByText('(11) 98765-4321')).toBeInTheDocument();
 
     expect(screen.getByText('João Santos')).toBeInTheDocument();
     expect(screen.getByText('joao@example.com')).toBeInTheDocument();
     expect(screen.getByText('JS')).toBeInTheDocument(); // Iniciais
   });
 
-  it('aciona callbacks de edição e exclusão ao clicar nos respectivos botões', async () => {
+  it('aciona callbacks de detalhes, edição e exclusão ao clicar nos respectivos botões', async () => {
     const user = userEvent.setup();
+    const handleView = vi.fn();
     const handleEdit = vi.fn();
     const handleDelete = vi.fn();
 
@@ -78,9 +91,14 @@ describe('UserTable Component Tests', () => {
         isLoading={false}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onView={handleView}
         onNewUser={() => {}}
       />
     );
+
+    const viewButtons = screen.getAllByRole('button', { name: /ver detalhes/i });
+    await user.click(viewButtons[0]);
+    expect(handleView).toHaveBeenCalledWith(mockUsers[0]);
 
     const editButtons = screen.getAllByRole('button', { name: /editar/i });
     await user.click(editButtons[0]);

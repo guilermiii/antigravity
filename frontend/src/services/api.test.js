@@ -23,7 +23,9 @@ describe('API Service Unit Tests', () => {
   });
 
   it('getUsers busca lista de usuários com paginação', async () => {
-    const mockUsers = [{ id: 1, name: 'Alice', email: 'alice@test.com' }];
+    const mockUsers = [
+      { id: 1, nome: 'Alice', sobrenome: 'Silva', email: 'alice@test.com' },
+    ];
     fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -36,7 +38,13 @@ describe('API Service Unit Tests', () => {
   });
 
   it('createUser envia POST com dados no corpo da requisição', async () => {
-    const newUser = { name: 'Bob', email: 'bob@test.com' };
+    const newUser = {
+      nome: 'Bob',
+      sobrenome: 'Santos',
+      email: 'bob@test.com',
+      telefone: '(11) 98765-4321',
+      idade: 30,
+    };
     fetch.mockResolvedValueOnce({
       ok: true,
       status: 201,
@@ -53,14 +61,16 @@ describe('API Service Unit Tests', () => {
       })
     );
     expect(res.id).toBe(2);
+    expect(res.nome).toBe('Bob');
+    expect(res.sobrenome).toBe('Santos');
   });
 
   it('updateUser envia PUT com dados atualizados', async () => {
-    const updateData = { name: 'Bob Editado' };
+    const updateData = { sobrenome: 'Santos Editado', cidade: 'São Paulo' };
     fetch.mockResolvedValueOnce({
       ok: true,
       status: 200,
-      json: async () => ({ id: 2, name: 'Bob Editado', email: 'bob@test.com' }),
+      json: async () => ({ id: 2, nome: 'Bob', sobrenome: 'Santos Editado', email: 'bob@test.com' }),
     });
 
     const res = await api.updateUser(2, updateData);
@@ -71,7 +81,7 @@ describe('API Service Unit Tests', () => {
         body: JSON.stringify(updateData),
       })
     );
-    expect(res.name).toBe('Bob Editado');
+    expect(res.sobrenome).toBe('Santos Editado');
   });
 
   it('deleteUser envia DELETE e retorna null para status 204', async () => {
@@ -95,9 +105,9 @@ describe('API Service Unit Tests', () => {
       json: async () => ({ detail: 'E-mail já cadastrado.' }),
     });
 
-    await expect(api.createUser({ name: 'A', email: 'a@a.com' })).rejects.toThrow(
-      'E-mail já cadastrado.'
-    );
+    await expect(
+      api.createUser({ nome: 'A', sobrenome: 'B', email: 'a@a.com' })
+    ).rejects.toThrow('E-mail já cadastrado.');
   });
 
   it('lança erro amigável quando backend retorna erro de validação (array detail)', async () => {
@@ -109,8 +119,8 @@ describe('API Service Unit Tests', () => {
       }),
     });
 
-    await expect(api.createUser({ name: 'A', email: 'invalido' })).rejects.toThrow(
-      'value is not a valid email address'
-    );
+    await expect(
+      api.createUser({ nome: 'A', sobrenome: 'B', email: 'invalido' })
+    ).rejects.toThrow('value is not a valid email address');
   });
 });

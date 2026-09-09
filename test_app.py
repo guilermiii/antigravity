@@ -1,6 +1,7 @@
-"""Script de teste automatizado para validar o CRUD e a API."""
+"""Script de teste de integração automatizado para validar a API FastAPI e o Banco PostgreSQL."""
 
 import json
+import time
 import urllib.error
 import urllib.request
 
@@ -25,71 +26,179 @@ def make_request(method: str, path: str, data: dict = None):
 
 
 def run_tests():
-    print("Iniciando testes da API...")
+    print("Iniciando testes de integração da API (FastAPI + PostgreSQL)...")
+    timestamp = int(time.time())
 
     # 1. Health/Root
     status, res = make_request("GET", "/")
     assert status == 200, f"Falha no GET /: {status}"
     print("✔ GET / OK")
 
-    # 2. Criar Usuário
-    status, user = make_request(
-        "POST",
-        "/users/",
-        {"name": "Carlos Eduardo", "email": "carlos@example.com"},
-    )
-    assert status == 201, f"Falha ao criar usuário: {status}, {user}"
-    user_id = user["id"]
-    print(f"✔ POST /users/ OK (ID: {user_id})")
+    # 2. Criar Usuário com apenas campos obrigatórios (nome, sobrenome, email)
+    mandatory_payload = {
+        "nome": "Carlos",
+        "sobrenome": "Eduardo",
+        "email": f"carlos_{timestamp}@example.com",
+    }
+    status, user_min = make_request("POST", "/users/", mandatory_payload)
+    assert status == 201, f"Falha ao criar usuário com obrigatórios: {status}, {user_min}"
+    assert user_min["nome"] == "Carlos"
+    assert user_min["sobrenome"] == "Eduardo"
+    assert user_min["pais"] == "Brasil"
+    assert user_min["cpf"] is None
+    min_user_id = user_min["id"]
+    print(f"✔ POST /users/ (apenas obrigatórios) OK (ID: {min_user_id})")
 
-    # 3. Validação de e-mail duplicado
+    # 3. Criar Usuário com todos os campos completos
+    full_payload = {
+        "nome": "Fernanda",
+        "sobrenome": "Montenegro",
+        "email": f"fernanda_{timestamp}@example.com",
+        "telefone": "(11) 98765-4321",
+        "idade": 45,
+        "genero": "Feminino",
+        "cpf": "52998224725",
+        "rua": "Av Paulista",
+        "numero": "1578",
+        "cidade": "São Paulo",
+        "estado": "SP",
+        "cep": "01310-200",
+        "pais": "Brasil",
+        "escolaridade": "Pós-Graduação",
+    }
+    status, user_full = make_request("POST", "/users/", full_payload)
+    assert status == 201, f"Falha ao criar usuário completo: {status}, {user_full}"
+    assert user_full["nome"] == "Fernanda"
+    assert user_full["sobrenome"] == "Montenegro"
+    assert user_full["idade"] == 45
+    assert user_full["cpf"] == "52998224725"
+    assert user_full["cep"] == "01310-200"
+    user_id = user_full["id"]
+    print(f"✔ POST /users/ (cadastro completo) OK (ID: {user_id})")
+
+    # 4. Validação: Falha ao omitir nome
     status, err = make_request(
         "POST",
         "/users/",
-        {"name": "Carlos 2", "email": "carlos@example.com"},
+        {"sobrenome": "Silva", "email": f"noname_{timestamp}@example.com"},
+    )
+    assert status == 422, f"Deveria retornar 422 para nome ausente: {status}"
+    print("✔ Validação de campo 'nome' obrigatório OK (422 Unprocessable Entity)")
+
+    # 5. Validação: Falha ao omitir sobrenome
+    status, err = make_request(
+        "POST",
+        "/users/",
+        {"nome": "João", "email": f"nosobrenome_{timestamp}@example.com"},
+    )
+    assert status == 422, f"Deveria retornar 422 para sobrenome ausente: {status}"
+    print("✔ Validação de campo 'sobrenome' obrigatório OK (422 Unprocessable Entity)")
+
+    # 6. Validação de e-mail duplicado
+    status, err = make_request(
+        "POST",
+        "/users/",
+        {
+            "nome": "Fernanda Clone",
+            "sobrenome": "Silva",
+            "email": full_payload["email"],
+        },
     )
     assert status == 400, f"Deveria retornar 400 para e-mail duplicado: {status}"
     print("✔ Validação de e-mail duplicado OK (400 Bad Request)")
 
-    # 4. Validação de formato de e-mail
+    # 7. Validação de formato de e-mail inválido
     status, err = make_request(
         "POST",
         "/users/",
-        {"name": "Invalido", "email": "email_invalido"},
+        {"nome": "Invalido", "sobrenome": "Email", "email": "email_sem_arroba"},
     )
     assert status == 422, f"Deveria retornar 422 para e-mail inválido: {status}"
     print("✔ Validação de formato de e-mail OK (422 Unprocessable Entity)")
 
-    # 5. Buscar por ID
+    # 8. Validação de CPF inválido
+    status, err = make_request(
+        "POST",
+        "/users/",
+        {
+            "nome": "Invalido",
+            "sobrenome": "CPF",
+            "email": f"invcpf_{timestamp}@example.com",
+            "cpf": "11111111111",
+        },
+    )
+    assert status == 422, f"Deveria retornar 422 para CPF inválido: {status}"
+    print("✔ Validação de algoritmo de CPF OK (422 Unprocessable Entity)")
+
+    # 9. Validação de idade fora dos limites
+    status, err = make_request(
+        "POST",
+        "/users/",
+        {
+            "nome": "Invalido",
+            "sobrenome": "Idade",
+            "email": f"invidade_{timestamp}@example.com",
+            "idade": 200,
+        },
+    )
+    assert status == 422, f"Deveria retornar 422 para idade > 150: {status}"
+    print("✔ Validação de limites de idade OK (422 Unprocessable Entity)")
+
+    # 10. Teste de segurança Anti-SQL Injection
+    sqli_text = "Robert'); DROP TABLE users; --"
+    sqli_payload = {
+        "nome": "Teste",
+        "sobrenome": sqli_text,
+        "email": f"sqli_{timestamp}@example.com",
+        "rua": "' OR '1'='1",
+    }
+    status, sqli_user = make_request("POST", "/users/", sqli_payload)
+    assert status == 201, f"Falha ao manipular string com caracteres SQL: {status}, {sqli_user}"
+    assert sqli_user["sobrenome"] == sqli_text
+    print(f"✔ Proteção Anti-SQL Injection OK (caracteres persistidos com segurança)")
+
+    # 11. Buscar por ID
     status, user_found = make_request("GET", f"/users/{user_id}")
     assert status == 200 and user_found["id"] == user_id
+    assert user_found["nome"] == "Fernanda"
+    assert user_found["sobrenome"] == "Montenegro"
+    assert user_found["cidade"] == "São Paulo"
     print(f"✔ GET /users/{user_id} OK")
 
-    # 6. Atualizar Usuário
+    # 12. Atualizar Usuário
     status, updated = make_request(
         "PUT",
         f"/users/{user_id}",
-        {"name": "Carlos Eduardo Silva"},
+        {
+            "sobrenome": "Montenegro Atualizada",
+            "telefone": "(11) 99999-8888",
+            "cidade": "Campinas",
+        },
     )
-    assert status == 200 and updated["name"] == "Carlos Eduardo Silva"
+    assert status == 200
+    assert updated["sobrenome"] == "Montenegro Atualizada"
+    assert updated["telefone"] == "(11) 99999-8888"
+    assert updated["cidade"] == "Campinas"
+    assert updated["nome"] == "Fernanda"  # Mantém o campo não alterado
     print(f"✔ PUT /users/{user_id} OK")
 
-    # 7. Listar Usuários
+    # 13. Listar Usuários
     status, users = make_request("GET", "/users/")
     assert status == 200 and isinstance(users, list)
     print(f"✔ GET /users/ OK (Total retornado: {len(users)})")
 
-    # 8. Deletar Usuário
-    status, _ = make_request("DELETE", f"/users/{user_id}")
-    assert status == 204
-    print(f"✔ DELETE /users/{user_id} OK")
+    # 14. Deletar Usuários de Teste
+    for uid in [user_id, min_user_id, sqli_user["id"]]:
+        status, _ = make_request("DELETE", f"/users/{uid}")
+        assert status == 204
+    print("✔ DELETE /users/{id} OK para registros criados")
 
-    # 9. Confirmar que não existe mais
+    # 15. Confirmar que não existe mais
     status, _ = make_request("GET", f"/users/{user_id}")
     assert status == 404
-    print(f"✔ Verificação pós-deleção OK (404 Not Found)")
+    print("✔ Verificação pós-deleção OK (404 Not Found)")
 
-    print("\n🎉 Todos os testes foram executados com sucesso!")
+    print("\n🎉 Todos os testes de integração da API foram executados com sucesso!")
 
 
 if __name__ == "__main__":
