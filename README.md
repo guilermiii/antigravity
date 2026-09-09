@@ -22,7 +22,7 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
   - **Design Clean**: Tipografia Inter, botões OAuth2 de GitHub e Google, badges de perfil na Navbar e modal de detalhes.
 - **DevOps & Testes**:
   - **Docker & Docker Compose**: Orquestração completa de banco, backend e frontend com reload instantâneo e espelhamento de volume.
-  - **Vitest & React Testing Library**: Testes unitários e de integração da interface (58 testes).
+  - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (68 testes).
   - **Python unittest**: Testes unitários de schemas, validadores, OAuth2 e penetração contra SQLi, XSS, CSRF e tokens (46 testes).
   - **Testes E2E Automatizados**: Dois scripts de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`).
 
@@ -175,35 +175,36 @@ curl -X DELETE "http://localhost:8000/users/1"
  
  Com os containers em execução (`docker compose up -d`), execute todas as camadas da pirâmide de testes:
  
--### 1. Testes Unitários e de Segurança do Backend (Python unittest)
--Valida regras de negócio puras, algoritmos de validação, fluxos OAuth2, JWT e **blindagem contra SQL Injection, XSS, CSRF, Replay e Alg: None** (46 testes):
--```bash
--docker compose exec app python -m unittest discover -s tests
--```
--
--Para executar especificamente a suíte de segurança:
--```bash
--docker compose exec app python -m unittest tests/test_auth_security.py
--```
--
--### 2. Testes do Frontend (Vitest + React Testing Library)
--Executa 58 testes cobrindo formatadores, botões OAuth2, perfil da Navbar, componentes, máscaras, modais e fluxo integrado da UI:
--```bash
--docker compose exec frontend npm test
--```
--
--### 3. Testes de Integração da API Backend (FastAPI + PostgreSQL)
--Valida todas as rotas HTTP, status codes (`200`, `201`, `400`, `404`, `422`, `204`) e persistência no banco:
--```bash
--docker compose exec app python test_app.py
--```
--
--### 4. Testes Ponta a Ponta (E2E)
--Validação completa do sistema ao vivo (Frontend, Backend, PostgreSQL e Autenticação):
--```bash
--python3 test_e2e.py
--python3 test_e2e_auth.py
--```
+### 1. Testes Unitários e de Segurança do Backend (Python unittest)
+Valida regras de negócio puras, algoritmos de validação, fluxos OAuth2, JWT e **blindagem contra SQL Injection, XSS, CSRF, Replay e Alg: None** (46 testes):
+```bash
+docker compose exec app python -m unittest discover -s tests
+```
+
+Para executar especificamente a suíte de segurança:
+```bash
+docker compose exec app python -m unittest tests/test_auth_security.py
+```
+
+### 2. Testes do Frontend (Vitest + React Testing Library)
+Executa 68 testes cobrindo formatadores, botões OAuth2, perfil da Navbar, responsividade mobile/tablet, componentes, máscaras, modais e fluxo integrado da UI:
+```bash
+docker compose exec frontend npm test
+```
+
+### 3. Testes de Integração da API Backend (FastAPI + PostgreSQL)
+Valida todas as rotas HTTP, status codes (`200`, `201`, `400`, `404`, `422`, `204`) e persistência no banco:
+```bash
+docker compose exec app python test_app.py
+```
+
+### 4. Testes Ponta a Ponta (E2E)
+Validação completa do sistema ao vivo (Frontend, Backend, PostgreSQL e Autenticação):
+```bash
+python3 test_e2e.py
+python3 test_e2e_auth.py
+```
+
 
 
 ---

@@ -25,7 +25,7 @@ Este projeto é uma aplicação web fullstack com arquitetura moderna e containe
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
 | **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend e frontend com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 10 arquivos de testes (58 testes) cobrindo formatters, componentes, botões OAuth, modais e integração de UI. |
+| **Testes Frontend**| Vitest + React Testing Library | 11 arquivos de testes (68 testes) cobrindo formatters, componentes, botões OAuth, responsividade mobile/tablet, modais e integração de UI. |
 | **Testes Backend** | Python unittest | 46 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2 e testes de segurança (SQLi, XSS, CSRF, JWT). |
 | **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py`), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py`). |
 
