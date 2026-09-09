@@ -277,3 +277,32 @@ python3 test_e2e.py
 ```bash
 docker compose down
 ```
+
+---
+
+## 8. 🔄 Estratégia de Branches & Esteiras de Integração Contínua (CI/CD)
+
+### 8.1 Modelo de Ramificação (Branching Strategy)
+- **`development`**:
+  - Branch de integração contínua para homologação e desenvolvimento ativo.
+  - Título da API marcado com `[DEVELOPMENT]`, versão `2.2.0-dev`, `environment: development` e `debug: true`.
+  - Frontend apresenta indicador visual ativo na Navbar: `<div className="env-badge dev">Ambiente: DEV</div>`.
+  - É a branch base para PRs de novas features e correções.
+- **`main`**:
+  - Branch principal de produção estável.
+  - Título e versão limpos de produção (`2.1.0`), `environment: production`.
+  - Interface visual limpa, sem badges de desenvolvimento.
+  - Código somente é promovido para a `main` após 100% de aprovação na esteira de CI de `development`.
+
+### 8.2 Workflows do GitHub Actions
+1. **`.github/workflows/ci-development.yml` (Pipeline de Desenvolvimento):**
+   - **Gatilhos**: `push` e `pull_request` direcionados para a branch `development`.
+   - **Jobs**:
+     - `backend-tests`: Sobe PostgreSQL 16 como container de serviço, roda migrações do Alembic, executa 46 testes unitários e de penetração de segurança (`unittest`), seguido dos testes de integração de API (`test_app.py`).
+     - `frontend-tests`: Configura Node.js 20, roda a suíte de 69 testes unitários e de integração com Vitest e executa a compilação de produção via Vite (`npm run build`).
+     - `approval-gate`: Job condicional que consolida o resultado de backend e frontend, gerando o relatório do GitHub Step Summary com o status de **APROVAÇÃO** para merge na `main`.
+2. **`.github/workflows/ci-main.yml` (Pipeline de Produção):**
+   - **Gatilhos**: `push` e `pull_request` direcionados para a branch `main`.
+   - **Jobs**:
+     - `production-test-and-verify`: Executa testes unitários, de segurança e Vitest em paralelo.
+     - `production-e2e-live`: Sobe a infraestrutura completa do Docker Compose (`fastapi_app`, `postgres_db`, `react_frontend`), aguarda a prontidão dos serviços via healthchecks e executa a validação ponta a ponta ao vivo (`test_e2e.py` e `test_e2e_auth.py`).

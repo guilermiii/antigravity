@@ -205,7 +205,56 @@ python3 test_e2e.py
 python3 test_e2e_auth.py
 ```
 
+---
 
+## 🔄 Estratégia de Branches & Esteiras de CI (GitHub Actions)
+
+O repositório adota uma estratégia de ramificação com esteiras de integração contínua (CI) dedicadas e independentes:
+
+```mermaid
+flowchart LR
+    DevCommit[Desenvolvedor / PR] -->|Push / PR| BranchDev[Branch: development]
+    BranchDev -->|Gatilho| CIDev[CI Development Pipeline]
+    
+    subgraph CIDevJobs [Pipeline de Desenvolvimento]
+        T1[Backend Unit & Security Tests\n46 testes]
+        T2[API Integration Tests\ntest_app.py + Postgres]
+        T3[Frontend Vitest Suite\n69 testes]
+        T4[Frontend Production Build\nVite]
+        Gate[Gate de Aprovação para Main\nStatus: APROVADO]
+        T1 --> Gate
+        T2 --> Gate
+        T3 --> Gate
+        T4 --> Gate
+    end
+    
+    Gate -->|Aprovação & Promoção / PR| BranchMain[Branch: main]
+    BranchMain -->|Gatilho| CIMain[CI Main Production Pipeline]
+    
+    subgraph CIMainJobs [Pipeline de Produção]
+        P1[Testes Unitários e Segurança]
+        P2[Vitest & Build Frontend]
+        P3[Docker Compose Stack Completo]
+        P4[Live E2E CRUD Suite\ntest_e2e.py]
+        P5[Live E2E Auth & Security Suite\ntest_e2e_auth.py]
+        P1 --> P3
+        P2 --> P3
+        P3 --> P4
+        P3 --> P5
+    end
+```
+
+### 🌿 Diferenças entre as Branches
+
+| Característica | `development` (Homologação & Dev) | `main` (Produção) |
+|---|---|---|
+| **Propósito** | Desenvolvimento contínuo, novas features e validação inicial | Código estável, homologado e pronto para produção |
+| **Versão da API** | `2.2.0-dev` | `2.1.0` |
+| **Título da API** | `... [DEVELOPMENT]` | `API de Cadastro de Usuários & Autenticação OAuth2` |
+| **Endpoint Raiz (`/`)** | `"environment": "development"`, `"debug": true` | `"environment": "production"` |
+| **Interface Visual** | Badge de ambiente no topo da Navbar: `Ambiente: DEV` | Interface limpa e definitiva de produção sem marcadores de dev |
+| **Esteira de CI** | `.github/workflows/ci-development.yml` | `.github/workflows/ci-main.yml` |
+| **Gating de Promoção** | Passing na CI de dev gera sumário de aprovação para merge na `main` | Execução completa com stack Docker Compose ao vivo e testes E2E |
 
 ---
 
