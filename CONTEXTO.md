@@ -1,28 +1,31 @@
 # 📋 Contexto Geral do Projeto: Sistema de Cadastro de Usuários (CRUD)
 
 > **Documento de Contexto e Arquitetura**  
-> **Última atualização:** 06 de Setembro de 2026  
-> **Status:** Concluído, testado e em execução via Docker Compose.
+> **Última atualização:** 09 de Setembro de 2026  
+> **Status:** Concluído, testado com 100% de aprovação (TDD), com validações nativas no banco e em execução via Docker Compose.
 
 ---
 
 ## 1. 🎯 Visão Geral e Objetivo
 
-Este projeto é uma aplicação web fullstack com arquitetura moderna e containerizada para gerenciamento completo (**CRUD**) de cadastro de usuários. O sistema foi desenvolvido do zero seguindo boas práticas de modularidade, validação em múltiplas camadas, persistência relacional, design de interface limpo (*clean design*) e cobertura abrangente de testes.
+Este projeto é uma aplicação web fullstack com arquitetura moderna e containerizada para gerenciamento completo (**CRUD**) de cadastro de usuários. O sistema segue práticas estritas de modularidade, separação de responsabilidades, validação em duas camadas (Backend via Pydantic e Banco de Dados via PostgreSQL CHECK Constraints), migrações versionadas com Alembic, blindagem integral contra SQL Injection, persistência relacional, design de interface limpo (*clean design*) e cobertura de testes seguindo **TDD (Test-Driven Development)**.
 
 ### 🛠️ Stack Tecnológica
 
 | Camada | Tecnologia | Descrição / Papel |
 |---|---|---|
-| **Backend** | Python 3.11 / FastAPI | Framework web de alta performance para criação de APIs REST assíncronas. |
-| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional e banco de dados relacional com volume persistente. |
-| **Validação Backend**| Pydantic v2 / email-validator | Schemas com validação estrita de dados e formatos de e-mail. |
-| **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva. |
-| **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, paleta neutra com acentos em azul royal, microinterações e transições suaves. |
+| **Backend** | Python 3.11 / FastAPI | Framework web de alta performance para criação de APIs REST assíncronas com OpenAPI 3.1. |
+| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional com consultas 100% parametrizadas e volume persistente. |
+| **Migrações** | Alembic 1.19 | Gerenciamento versionado e automatizado de DDL e restrições de integridade no banco. |
+| **Validação Backend**| Pydantic v2 / email-validator | Schemas com validação estrita de dados, algoritmo de CPF, formato de CEP e telefone. |
+| **Validação DB** | PostgreSQL CHECK Constraints | Restrições nativas de integridade de dados e validações regex executadas pela engine do banco. |
+| **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva com microinterações. |
+| **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
-| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend e frontend. |
-| **Testes Frontend**| Vitest + React Testing Library | Testes unitários, de componentes e de integração do fluxo de tela. |
-| **Testes E2E / API**| Playwright / Scripts Python | Validações automatizadas ponta a ponta e integração de API. |
+| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend e frontend com reload instantâneo. |
+| **Testes Frontend**| Vitest + React Testing Library | 9 arquivos de testes (53 testes) cobrindo formatters, componentes, modais e integração de UI. |
+| **Testes Backend** | Python unittest | 17 testes unitários isolados validando regras de CPF, CEP, idade, schemas e anti-SQLi. |
+| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py`) e ponta a ponta (`test_e2e.py`). |
 
 ---
 
@@ -42,11 +45,13 @@ flowchart LR
 
         subgraph Backend_Container ["fastapi_app (:8000)"]
             FastAPI["FastAPI App + CORS"]
-            SQLAlchemy["SQLAlchemy ORM"]
+            Alembic["Alembic Migrations"]
+            SQLAlchemy["SQLAlchemy 2.0 ORM"]
         end
 
         subgraph DB_Container ["postgres_db (:5432)"]
             PostgreSQL[(PostgreSQL 16\nDB: users_db)]
+            PGConstraints["CHECK Constraints\n& NOT NULL"]
             PGData[("Volume Persistente:\npostgres_data")]
         end
     end
@@ -54,8 +59,11 @@ flowchart LR
     User -->|Acessa UI :3000| ReactApp
     User -->|Acessa Swagger :8000/docs| FastAPI
     ReactApp -->|Requisições HTTP / JSON com CORS| FastAPI
+    FastAPI --> Alembic
+    Alembic -->|Upgrade Head no Lifespan| PostgreSQL
     FastAPI --> SQLAlchemy
-    SQLAlchemy -->|Conexão TCP :5432| PostgreSQL
+    SQLAlchemy -->|Prepared Statements :5432| PostgreSQL
+    PostgreSQL --- PGConstraints
     PostgreSQL --- PGData
 ```
 
@@ -64,36 +72,46 @@ flowchart LR
 ## 3. 📂 Estrutura Completa de Diretórios e Arquivos
 
 ```text
-/home/guilhermemorais/antigravity/
+/home/guilermiii/github/antigravity/
+├── alembic/                          # Migrações versionadas de banco de dados
+│   ├── env.py                        # Integração do Alembic com SQLAlchemy e PostgreSQL
+│   ├── script.py.mako                # Template de criação de novas migrations
+│   └── versions/                     # Histórico de migrations
+│       └── 001_expand_users_and_add_constraints.py # Migration com novas colunas e CHECK constraints
+├── alembic.ini                       # Configuração global do Alembic
+│
 ├── app/                              # Módulo do Backend (FastAPI)
 │   ├── __init__.py                   # Inicialização do pacote Python
 │   ├── database.py                   # Engine, SessionLocal e Base do SQLAlchemy
-│   ├── models.py                     # Modelo User mapeado no PostgreSQL
-│   ├── schemas.py                    # Schemas Pydantic (Create, Update, Response)
-│   └── main.py                       # Rotas da API, CORS e ciclo de vida
+│   ├── models.py                     # Modelo User com novas colunas e CheckConstraints
+│   ├── schemas.py                    # Schemas Pydantic v2 (Create, Update, Response)
+│   ├── validators.py                 # Funções puras de validação (CPF módulo 11, CEP, Telefone)
+│   └── main.py                       # Rotas da API, auto-migration no lifespan e Swagger
 │
 ├── frontend/                         # Aplicação Frontend (React + Vite)
 │   ├── e2e/
 │   │   └── users-crud.spec.js        # Testes E2E com Playwright
 │   ├── src/
 │   │   ├── components/               # Componentes reutilizáveis
-│   │   │   ├── DeleteConfirmModal.jsx      # Modal seguro de exclusão
-│   │   │   ├── DeleteConfirmModal.test.jsx # Teste do modal de exclusão
-│   │   │   ├── Navbar.jsx                  # Cabeçalho, contador e status
-│   │   │   ├── Navbar.test.jsx             # Teste da Navbar
+│   │   │   ├── DeleteConfirmModal.jsx      # Modal seguro de confirmação de exclusão
+│   │   │   ├── DeleteConfirmModal.test.jsx # Testes do modal de exclusão
+│   │   │   ├── Navbar.jsx                  # Cabeçalho com status de conexão e contador
+│   │   │   ├── Navbar.test.jsx             # Testes da Navbar
 │   │   │   ├── Toast.jsx                   # Notificações visuais flutuantes
-│   │   │   ├── Toast.test.jsx              # Teste do Toast
-│   │   │   ├── UserFormModal.jsx           # Formulário de criação e edição
-│   │   │   ├── UserFormModal.test.jsx      # Teste do formulário com validação
-│   │   │   ├── UserTable.jsx               # Tabela responsiva com avatares
-│   │   │   └── UserTable.test.jsx          # Teste da tabela de usuários
+│   │   │   ├── Toast.test.jsx              # Testes do Toast
+│   │   │   ├── UserDetailModal.jsx         # Modal de exibição da ficha cadastral completa
+│   │   │   ├── UserDetailModal.test.jsx    # Testes do modal de detalhes
+│   │   │   ├── UserFormModal.jsx           # Formulário com grid, seções e máscaras
+│   │   │   ├── UserFormModal.test.jsx      # Testes do formulário (obrigatórios vs opcionais)
+│   │   │   ├── UserTable.jsx               # Tabela responsiva com iniciais, contato e ações
+│   │   │   └── UserTable.test.jsx          # Testes da tabela de usuários
 │   │   ├── services/
-│   │   │   ├── api.js                # Cliente de consumo HTTP dos endpoints
+│   │   │   ├── api.js                # Cliente de consumo HTTP dos endpoints REST
 │   │   │   └── api.test.js           # Testes unitários do cliente HTTP
 │   │   ├── utils/
-│   │   │   ├── formatters.js         # Funções de formatação (iniciais, datas)
+│   │   │   ├── formatters.js         # Formatadores (iniciais nome/sobrenome, CPF, Telefone, CEP, datas)
 │   │   │   └── formatters.test.js    # Testes unitários das formatações
-│   │   ├── App.jsx                   # Componente central com gerenciamento de estado
+│   │   ├── App.jsx                   # Componente central com gerenciamento de estado e modais
 │   │   ├── App.integration.test.jsx  # Teste de integração do fluxo completo da UI
 │   │   ├── index.css                 # Folha de estilo clean/moderna global
 │   │   ├── main.jsx                  # Ponto de montagem React no DOM
@@ -104,15 +122,19 @@ flowchart LR
 │   ├── playwright.config.js          # Configuração do Playwright
 │   └── vite.config.js                # Configuração do Vite e Vitest
 │
+├── tests/                            # Suíte de Testes Unitários do Backend
+│   ├── __init__.py
+│   └── test_unit.py                  # 17 testes unitários (Pydantic, CPF, CEP, idade, Anti-SQLi)
+│
 ├── .dockerignore                     # Ignora arquivos desnecessários no build do app
 ├── .env.example                      # Variáveis de ambiente de exemplo
 ├── .gitignore                        # Regras de ignore do Git
-├── CONTEXTO.md                       # Este documento de contexto
+├── CONTEXTO.md                       # Este documento de contexto e arquitetura
 ├── Dockerfile                        # Imagem Python 3.11 para a API FastAPI
-├── docker-compose.yml                # Orquestrador dos serviços db, app e frontend
+├── docker-compose.yml                # Orquestrador dos serviços db, app e frontend com volumes
 ├── README.md                         # Documentação principal e guia de uso
-├── requirements.txt                  # Dependências Python do backend
-├── test_app.py                       # Teste de integração da API em Python
+├── requirements.txt                  # Dependências Python do backend (com alembic)
+├── test_app.py                       # Testes de integração da API em Python
 └── test_e2e.py                       # Teste ponta a ponta (E2E) dos 3 serviços
 ```
 
@@ -123,84 +145,99 @@ flowchart LR
 ### 4.1 Modelo de Dados (`app/models.py`)
 Tabela `users`:
 - `id` (`Integer`, Primary Key, Index): Identificador numérico auto-incremental.
-- `name` (`String(100)`, Not Null): Nome completo do usuário.
-- `email` (`String(100)`, Unique, Index, Not Null): E-mail único obrigatório.
-- `created_at` (`DateTime(timezone=True)`, server_default=`func.now()`): Timestamp de registro.
+- `nome` (`String(100)`, Not Null): Primeiro nome (mínimo 2 caracteres).
+- `sobrenome` (`String(100)`, Not Null): Sobrenome do usuário (mínimo 2 caracteres).
+- `email` (`String(150)`, Unique, Index, Not Null): E-mail único obrigatório.
+- `telefone` (`String(20)`, Nullable): Telefone com DDD no padrão `(XX) XXXXX-XXXX`.
+- `idade` (`Integer`, Nullable): Idade em anos (entre 0 e 150).
+- `genero` (`String(50)`, Nullable): Identidade de gênero.
+- `cpf` (`String(14)`, Index, Nullable): CPF válido com 11 dígitos numéricos.
+- `rua` (`String(200)`, Nullable): Logradouro.
+- `numero` (`String(20)`, Nullable): Número residencial.
+- `cidade` (`String(100)`, Nullable): Cidade.
+- `estado` (`String(50)`, Nullable): Estado ou UF.
+- `cep` (`String(20)`, Nullable): CEP no formato `00000-000`.
+- `pais` (`String(100)`, Nullable, Default="Brasil"): País de residência.
+- `escolaridade` (`String(100)`, Nullable): Grau de formação.
+- `created_at` (`DateTime(timezone=True)`, server_default=`func.now()`): Timestamp de cadastro.
+
+#### Restrições Nativas no PostgreSQL (CHECK Constraints):
+- `check_nome_valido`: `length(trim(nome)) >= 2`
+- `check_sobrenome_valido`: `length(trim(sobrenome)) >= 2`
+- `check_email_formato`: `email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'`
+- `check_idade_valida`: `idade IS NULL OR (idade >= 0 AND idade <= 150)`
+- `check_cpf_valido`: `cpf IS NULL OR (cpf ~ '^[0-9]{11}$')`
+- `check_cep_valido`: `cep IS NULL OR (cep ~ '^[0-9]{5}-[0-9]{3}$')`
+- `check_telefone_valido`: `telefone IS NULL OR (length(telefone) >= 10 AND length(telefone) <= 20)`
 
 ### 4.2 Esquemas Pydantic (`app/schemas.py`)
-- `UserBase`: Campos base (`name`, `email: EmailStr`).
-- `UserCreate`: Payload para criação de usuário.
-- `UserUpdate`: Campos opcionais (`name: Optional[str]`, `email: Optional[EmailStr]`).
+- `UserBase`: Campos base com anotações ricas do OpenAPI, exemplos e validadores `@field_validator`.
+- `UserCreate`: Payload para criação de usuário (apenas `nome`, `sobrenome` e `email` obrigatórios).
+- `UserUpdate`: Atualização atômica ou parcial com campos opcionais.
 - `UserResponse`: Retorno serializado com `id`, `created_at` e `from_attributes = True`.
 
 ### 4.3 Endpoints e Regras de Negócio (`app/main.py`)
 
 | Método | Rota | Status Code | Descrição e Validações |
 |---|---|---|---|
-| `GET` | `/` | `200 OK` | Mensagem de boas-vindas e link para `/docs`. |
-| `POST` | `/users/` | `201 Created` | Cria usuário. Valida formato de e-mail e impede duplicação (retorna `400 Bad Request` se já existir). |
-| `GET` | `/users/` | `200 OK` | Listagem com parâmetros de paginação `skip` (default: 0) e `limit` (default: 100). |
-| `GET` | `/users/{id}` | `200 OK` | Busca por ID. Retorna `404 Not Found` caso o usuário não exista. |
-| `PUT` | `/users/{id}` | `200 OK` | Atualiza dados. Valida se o novo e-mail já pertence a outro usuário cadastrado. |
-| `DELETE` | `/users/{id}` | `204 No Content` | Remove o usuário do banco. Retorna `404 Not Found` se não existir. |
-
-### 4.4 Middleware de CORS
-Configurado via `CORSMiddleware` no FastAPI para habilitar comunicação direta com o frontend React (`http://localhost:3000`), permitindo métodos `GET`, `POST`, `PUT`, `DELETE` e `OPTIONS`.
+| `GET` | `/` | `200 OK` | Mensagem de boas-vindas, versão da API e link para `/docs`. |
+| `POST` | `/users/` | `201 Created` | Cria usuário com validação de unicidade de e-mail e persistência 100% parametrizada via ORM. |
+| `GET` | `/users/` | `200 OK` | Listagem com paginação via `skip` e `limit`. |
+| `GET` | `/users/{id}` | `200 OK` | Busca por ID com retorno de ficha completa ou `404 Not Found`. |
+| `PUT` | `/users/{id}` | `200 OK` | Atualização parcial/total com validação de conflito de e-mail (`400 Bad Request`). |
+| `DELETE` | `/users/{id}` | `204 No Content` | Remove usuário permanentemente do banco ou retorna `404 Not Found`. |
 
 ---
 
 ## 5. 💻 Detalhamento do Frontend (React + Vite)
 
-### 5.1 Design System e Princípios Visuais
-- **Identidade Visual:** Minimalista, limpa e profissional.
-- **Tipografia:** Fonte `Inter` importada do Google Fonts.
-- **Cores Principais:**
-  - Fundo principal: `#f8fafc` (slate sutil).
-  - Superfícies/Cards: `#ffffff` com bordas `#e2e8f0` e sombras suaves.
-  - Primária: Azul Royal `#2563eb` (hover: `#1d4ed8`).
-  - Sucesso: `#10b981` (badge online e toasts).
-  - Perigo: `#ef4444` (exclusão e alertas de erro).
-- **Responsividade:** Layout adaptável para telas móveis e desktops.
-
-### 5.2 Componentes e Responsabilidades
+### 5.1 Componentes e Responsabilidades
 1. **`Navbar`**: Exibe o logotipo, contador dinâmico de usuários cadastrados e badge de status da conexão com a API.
-2. **`UserTable`**: Tabela com avatar gerado a partir das iniciais do usuário, ID, e-mail, data formatada em `pt-BR` e botões de ação com ícones. Inclui estados de *loading* e *empty state*.
-3. **`UserFormModal`**: Modal responsivo com formulário para cadastro e edição de usuários, com validação de preenchimento e regex de e-mail.
-4. **`DeleteConfirmModal`**: Modal de segurança para confirmar antes de realizar a remoção permanente de um usuário.
-5. **`Toast`**: Sistema flutuante de notificações para feedback imediato (auto-dismiss após 4 segundos).
+2. **`UserTable`**: Tabela responsiva com avatar gerado a partir de `nome` e `sobrenome`, ID, contato (e-mail e telefone), localidade (cidade/UF), data em `pt-BR` e botões de ação (Ver Detalhes, Editar, Excluir).
+3. **`UserFormModal`**: Modal responsivo com layout em grid e seções dedicadas:
+   - **Dados Obrigatórios:** Nome *, Sobrenome *, E-mail *.
+   - **Informações Pessoais:** Telefone, CPF (máscara e validação matemática de dígitos verificadores), Idade, Gênero, Escolaridade, País.
+   - **Endereço:** Rua, Número, Cidade, Estado, CEP (máscara).
+4. **`UserDetailModal`**: Modal elegante de visualização da ficha cadastral completa com todos os dados preenchidos.
+5. **`DeleteConfirmModal`**: Modal de segurança para confirmar antes de realizar a remoção permanente de um usuário.
+6. **`Toast`**: Sistema flutuante de notificações para feedback imediato.
 
 ---
 
-## 6. 🧪 Pirâmide de Testes Implementada
+## 6. 🧪 Pirâmide de Testes Implementada (TDD)
 
-O projeto conta com **4 camadas completas de testes**, todas verificadas e com 100% de sucesso:
+O projeto conta com **cobertura em 4 camadas**, com 100% de sucesso em todas:
 
 ```text
                ▲
               / \
-             /E2E\        -> test_e2e.py & Playwright (fluxo completo navegador/API/DB)
+             /E2E\        -> test_e2e.py & users-crud.spec.js (Playwright)
             /-----\
-           / Inte- \      -> App.integration.test.jsx & test_app.py (FastAPI + DB)
+           / Inte- \      -> App.integration.test.jsx & test_app.py (FastAPI + PostgreSQL)
           /  gração \
          /-----------\
-        / Componentes \   -> Navbar, Toast, UserTable, UserFormModal, DeleteConfirmModal
+        / Componentes \   -> Navbar, Toast, UserTable, UserFormModal, UserDetailModal, DeleteConfirmModal
        /---------------\
-      /    Unitários    \ -> formatters.test.js & api.test.js
+      /    Unitários    \ -> formatters.test.js, api.test.js & tests/test_unit.py (Backend)
      ---------------------
 ```
 
 ### Resumo dos Resultados dos Testes
 
-1. **Testes do Frontend (Vitest + React Testing Library):**
-   - **Total:** 8 arquivos de teste, **40 testes executados, 40 aprovados**.
+1. **Testes Unitários do Backend (Python unittest):**
+   - **Total:** 17 testes executados, 17 aprovados (`docker compose exec app python -m unittest discover -s tests`).
+   - Cobertura: Algoritmo de CPF oficial, CEP, telefone, limites de idade, obrigatoriedade de campos e imunidade a SQL Injection.
+
+2. **Testes do Frontend (Vitest + React Testing Library):**
+   - **Total:** 9 arquivos de teste, **53 testes executados, 53 aprovados**.
    - Comando: `docker compose exec frontend npm test`
 
-2. **Testes de Integração da API (Python):**
-   - **Total:** 14 asserções validando status codes `200`, `201`, `400`, `404`, `422` e `204`.
+3. **Testes de Integração da API (Python):**
+   - **Total:** 14 asserções validando status codes `200`, `201`, `400`, `404`, `422` e `204`, e persistência segura de injeções SQL.
    - Comando: `python3 test_app.py`
 
-3. **Testes Ponta a Ponta (E2E):**
-   - Valida entrega do HTML no React, bundle do Vite, preflight CORS e jornada completa de usuário no PostgreSQL.
+4. **Testes Ponta a Ponta (E2E):**
+   - Valida entrega do HTML no React, bundle do Vite, preflight CORS e jornada completa de usuário no PostgreSQL com novos campos.
    - Comando: `python3 test_e2e.py`
 
 ---
@@ -214,27 +251,26 @@ docker compose up -d --build
 
 ### 7.2 Endereços de Acesso
 - **Frontend React:** [http://localhost:3000](http://localhost:3000)
-- **Documentação Swagger:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Documentação Swagger (OpenAPI 3.1):** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Documentação ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **PostgreSQL:** `localhost:5432` (Usuário: `postgres`, Banco: `users_db`)
 
-### 7.3 Execução dos Testes
+### 7.3 Execução das Suítes de Teste
 ```bash
-# Testes do Frontend (Unitários + Componentes + Integração)
+# 1. Testes Unitários do Backend (Validações, Schemas, Anti-SQLi)
+docker compose exec app python -m unittest discover -s tests
+
+# 2. Testes do Frontend (Vitest + React Testing Library - 53 testes)
 docker compose exec frontend npm test
 
-# Testes de Integração da API Backend
+# 3. Testes de Integração da API Backend (FastAPI + PostgreSQL)
 python3 test_app.py
 
-# Testes E2E (Ponta a Ponta)
+# 4. Testes Ponta a Ponta (E2E dos 3 serviços)
 python3 test_e2e.py
 ```
 
-### 7.4 Parada e Limpeza dos Serviços
+### 7.4 Parada dos Serviços
 ```bash
-# Parar os containers mantendo os dados salvos
 docker compose down
-
-# Parar os containers e remover volumes do banco de dados
-docker compose down -v
 ```
