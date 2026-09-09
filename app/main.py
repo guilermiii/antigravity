@@ -27,13 +27,14 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="API de Cadastro de Usuários & Autenticação OAuth2",
+    title="API de Cadastro de Usuários & Autenticação OAuth2 [DEVELOPMENT]",
     description=(
         "Sistema completo de CRUD de usuários e autenticação federada OAuth 2.0 (GitHub e Google) com JWT, "
         "validações no Backend (Pydantic v2), validações nativas no banco de dados (PostgreSQL CHECK Constraints), "
-        "migrações versionadas com Alembic e proteção integral contra SQL Injection e Script Injection (XSS)."
+        "migrações versionadas com Alembic e proteção integral contra SQL Injection e Script Injection (XSS). "
+        "[AMBIENTE DE DESENVOLVIMENTO & HOMOLOGAÇÃO]"
     ),
-    version="2.1.0",
+    version="2.2.0-dev",
     lifespan=lifespan,
 )
 
@@ -59,10 +60,13 @@ app.include_router(auth_router)
 )
 def read_root():
     return {
-        "message": "Bem-vindo à API de Cadastro de Usuários!",
-        "version": "2.0.0",
+        "message": "Bem-vindo à API de Cadastro de Usuários! [DEVELOPMENT ENVIRONMENT]",
+        "environment": "development",
+        "debug": True,
+        "version": "2.2.0-dev",
         "docs": "/docs",
     }
+
 
 
 @app.post(
