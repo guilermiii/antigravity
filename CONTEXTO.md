@@ -26,9 +26,9 @@ Este projeto é uma aplicação web fullstack com arquitetura moderna e containe
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
 | **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, frontend e servidor Prometheus com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 13 arquivos de testes (84 testes) cobrindo formatters, componentes, tela de login dedicada, botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI. |
-| **Testes Backend** | Python unittest | 58 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança (SQLi, XSS, CSRF, JWT, Provider Errors). |
-| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 16 validações), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py` com 8 etapas). |
+| **Testes Frontend**| Vitest + React Testing Library | 13 arquivos de testes (85 testes) cobrindo formatters, componentes, tela de login obrigatória (Auth Wall), botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI com bloqueio estrito. |
+| **Testes Backend** | Python unittest | 63 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança/bloqueio de CRUD sem token (401 Unauthorized). |
+| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 18 validações cobrindo rejeição 401 e CRUD autenticado), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py` com 8 etapas). |
 
 
 
