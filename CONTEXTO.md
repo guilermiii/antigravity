@@ -26,7 +26,7 @@ Este projeto é uma aplicação web fullstack com arquitetura moderna e containe
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
 | **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, frontend e servidor Prometheus com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 12 arquivos de testes (71 testes) cobrindo formatters, componentes, botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI. |
+| **Testes Frontend**| Vitest + React Testing Library | 13 arquivos de testes (84 testes) cobrindo formatters, componentes, tela de login dedicada, botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI. |
 | **Testes Backend** | Python unittest | 58 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança (SQLi, XSS, CSRF, JWT, Provider Errors). |
 | **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 16 validações), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py` com 8 etapas). |
 
@@ -99,10 +99,15 @@ flowchart LR
 │   │   └── users-crud.spec.js        # Testes E2E com Playwright
 │   ├── src/
 │   │   ├── components/               # Componentes reutilizáveis
+│   │   │   ├── AuthButtons.jsx             # Botões de Login OAuth2 compactos e grandes
+│   │   │   ├── AuthButtons.test.jsx        # Testes dos botões OAuth
 │   │   │   ├── DeleteConfirmModal.jsx      # Modal seguro de confirmação de exclusão
 │   │   │   ├── DeleteConfirmModal.test.jsx # Testes do modal de exclusão
-│   │   │   ├── Navbar.jsx                  # Cabeçalho com status de conexão e contador
+│   │   │   ├── LoginScreen.jsx             # Tela de Login dedicada (OAuth2 GitHub/Google, badges, perfil)
+│   │   │   ├── LoginScreen.test.jsx        # Testes unitários com mocks da LoginScreen
+│   │   │   ├── Navbar.jsx                  # Cabeçalho com status, ambiente DEV, login e perfil
 │   │   │   ├── Navbar.test.jsx             # Testes da Navbar
+│   │   │   ├── ResponsiveUI.test.jsx       # Testes de responsividade mobile/tablet
 │   │   │   ├── Toast.jsx                   # Notificações visuais flutuantes
 │   │   │   ├── Toast.test.jsx              # Testes do Toast
 │   │   │   ├── UserDetailModal.jsx         # Modal de exibição da ficha cadastral completa
