@@ -38,19 +38,61 @@ def _init_client():
             _use_test_client = False
 
 
-def make_request(method: str, path: str, data: dict = None):
+_auth_token = None
+
+
+def set_auth_token(token: str):
+    global _auth_token
+    _auth_token = token
+
+
+def get_or_create_test_auth_token():
+    try:
+        from app.database import SessionLocal
+        from app.models import User
+        from app.auth.security import create_access_token
+
+        db = SessionLocal()
+        try:
+            admin_user = db.query(User).filter(User.email == "test_api_runner@example.com").first()
+            if not admin_user:
+                admin_user = User(
+                    nome="API",
+                    sobrenome="Tester",
+                    email="test_api_runner@example.com",
+                    is_active=True,
+                )
+                db.add(admin_user)
+                db.commit()
+                db.refresh(admin_user)
+            return create_access_token({"sub": str(admin_user.id)})
+        finally:
+            db.close()
+    except Exception as exc:
+        print(f"[test_app] Aviso ao obter token via DB: {exc}")
+        return None
+
+
+def make_request(method: str, path: str, data: dict = None, custom_headers: dict = None):
     _init_client()
+    req_headers = {}
+    if data:
+        req_headers["Content-Type"] = "application/json"
+    if _auth_token:
+        req_headers["Authorization"] = f"Bearer {_auth_token}"
+    if custom_headers:
+        req_headers.update(custom_headers)
+
     if _use_test_client and _test_client is not None:
-        resp = _test_client.request(method, path, json=data)
+        resp = _test_client.request(method, path, json=data, headers=req_headers)
         try:
             return resp.status_code, resp.json()
         except Exception:
             return resp.status_code, resp.text
 
     url = f"{BASE_URL}{path}"
-    headers = {"Content-Type": "application/json"} if data else {}
     body = json.dumps(data).encode("utf-8") if data else None
-    req = urllib.request.Request(url, data=body, headers=headers, method=method)
+    req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
     try:
         with urllib.request.urlopen(req) as resp:
             content = resp.read().decode("utf-8")
@@ -80,6 +122,30 @@ def run_tests():
     assert status == 200 and health.get("status") == "healthy", f"Falha no GET /health: {status}, {health}"
     assert health.get("database") == "connected"
     print("✔ GET /health (PostgreSQL probe conectado) OK")
+
+    # 1.2 Validação de Bloqueio sem Autenticação (Regra de Negócio: Não cadastrar nem visualizar sem login)
+    status_unauth_post, _ = make_request(
+        "POST",
+        "/users/",
+        {"nome": "Tentativa", "sobrenome": "Anonima", "email": f"anon_{timestamp}@example.com"},
+        custom_headers={"Authorization": ""},
+    )
+    assert status_unauth_post == 401, f"Falha de segurança: POST /users/ sem token retornou {status_unauth_post} (esperado 401)"
+    print("✔ Bloqueio de POST /users/ sem autenticação OK (401 Unauthorized)")
+
+    status_unauth_get, _ = make_request(
+        "GET",
+        "/users/",
+        custom_headers={"Authorization": ""},
+    )
+    assert status_unauth_get == 401, f"Falha de segurança: GET /users/ sem token retornou {status_unauth_get} (esperado 401)"
+    print("✔ Bloqueio de GET /users/ sem autenticação OK (401 Unauthorized)")
+
+    # 1.3 Obtenção de Token de Autenticação para testes de CRUD
+    token = get_or_create_test_auth_token()
+    if token:
+        set_auth_token(token)
+        print("✔ Autenticação JWT inicializada para operações do sistema")
 
     # 2. Criar Usuário com apenas campos obrigatórios (nome, sobrenome, email)
     mandatory_payload = {

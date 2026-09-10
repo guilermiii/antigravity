@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.router import router as auth_router
+from app.auth.security import get_current_user
 from app.database import Base, SessionLocal, engine, get_db
 from app.metrics import (
     APP_USERS_TOTAL,
@@ -111,7 +112,11 @@ def read_root():
         422: {"description": "Erro de validação nos campos informados."},
     },
 )
-def create_user(user: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     # 1. Validação de unicidade do e-mail
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
@@ -153,6 +158,7 @@ def list_users(
     skip: int = Query(0, ge=0, description="Número de registros a pular"),
     limit: int = Query(100, ge=1, le=500, description="Número máximo de registros"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     users = db.query(User).order_by(User.id.desc()).offset(skip).limit(limit).all()
     return users
@@ -169,7 +175,11 @@ def list_users(
         404: {"description": "Usuário não encontrado."},
     },
 )
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -196,6 +206,7 @@ def update_user(
     user_id: int,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -250,7 +261,11 @@ def update_user(
         404: {"description": "Usuário não encontrado."},
     },
 )
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         record_user_operation("delete", "not_found")

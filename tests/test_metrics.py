@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 
-from app.database import get_db
+from app.auth.security import get_current_user
+from app.database import Base, engine, get_db
 from app.main import app
 from app.metrics import (
     APP_OAUTH_LOGINS_TOTAL,
@@ -25,8 +26,10 @@ class TestPrometheusMetrics(unittest.TestCase):
 
     def setUp(self):
         self.mock_db = MagicMock()
+        mock_user = MagicMock(id=1, email="test@metrics.com", is_active=True)
         app.dependency_overrides[get_db] = lambda: self.mock_db
         app.dependency_overrides[metrics_get_db] = lambda: self.mock_db
+        app.dependency_overrides[get_current_user] = lambda: mock_user
         self.client = TestClient(app)
 
     def tearDown(self):

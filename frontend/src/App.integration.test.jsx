@@ -74,8 +74,6 @@ describe('App Integration Tests (CRUD Flow & Auth Guard)', () => {
   it('carrega e exibe a listagem inicial de usuários da API', async () => {
     render(<App />);
 
-    expect(screen.getByText('Carregando usuários...')).toBeInTheDocument();
-
     await waitFor(() => {
       expect(screen.getByText('Alice Silva')).toBeInTheDocument();
       expect(screen.getByText('Bruno Souza')).toBeInTheDocument();

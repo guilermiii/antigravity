@@ -12,7 +12,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
   const [users, setUsers] = useState([]);
-  const { authError, clearAuthError } = useAuth() || {};
+  const { user, isAuthenticated, isLoading: isAuthLoading, authError, clearAuthError } = useAuth() || {};
 
   const [currentView, setCurrentView] = useState(() => {
     return typeof window !== 'undefined' && window.location.hash === '#login'
@@ -20,7 +20,7 @@ function AppContent() {
       : 'dashboard';
   });
 
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -60,7 +60,7 @@ function AppContent() {
     }
   }, [authError, clearAuthError]);
 
-  // Carregar usuários
+  // Carregar usuários apenas se autenticado
   const fetchUsers = async () => {
     setIsLoading(true);
     try {
@@ -76,8 +76,12 @@ function AppContent() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (isAuthenticated) {
+      fetchUsers();
+    } else {
+      setUsers([]);
+    }
+  }, [isAuthenticated]);
 
   // Filtragem de busca em múltiplos campos
   const filteredUsers = useMemo(() => {
@@ -196,18 +200,41 @@ function AppContent() {
     }
   };
 
+  // Auth Wall: Se a autenticação estiver carregando, exibe spinner central
+  if (isAuthLoading) {
+    return (
+      <div className="login-wrapper">
+        <div className="login-card login-loading-card" data-testid="auth-loading-spinner">
+          <RefreshCw size={36} className="spinner" style={{ color: 'var(--primary, #3b82f6)' }} />
+          <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth Wall: Se não estiver autenticado, exibe estritamente a tela de login
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginScreen />
+        <Toast toasts={toasts} onDismiss={removeToast} />
+      </>
+    );
+  }
+
+  // Sistema liberado apenas após autenticação confirmada
   return (
     <>
       <Navbar
         totalUsers={users.length}
         isOnline={isOnline}
-        onNavigateToLogin={navigateToLogin}
-        onNavigateToDashboard={navigateToDashboard}
+        onNavigateToLogin={() => setCurrentView('login')}
+        onNavigateToDashboard={() => setCurrentView('dashboard')}
         currentView={currentView}
       />
 
       {currentView === 'login' ? (
-        <LoginScreen onNavigateToDashboard={navigateToDashboard} />
+        <LoginScreen onNavigateToDashboard={() => setCurrentView('dashboard')} />
       ) : (
         <main className="container">
           <div className="actions-bar">

@@ -4,7 +4,6 @@ import {
   Shield,
   KeyRound,
   Users,
-  ArrowLeft,
   ArrowRight,
   LogOut,
   AlertCircle,
@@ -195,18 +194,6 @@ export default function LoginScreen({ onNavigateToDashboard }) {
                   <p>Associação inteligente pelo mesmo e-mail verificado.</p>
                 </div>
               </div>
-            </div>
-
-            <div className="login-footer">
-              <button
-                type="button"
-                className="btn btn-secondary btn-block"
-                onClick={onNavigateToDashboard}
-                aria-label="Continuar como Visitante"
-              >
-                <ArrowLeft size={16} />
-                <span>Continuar como Visitante</span>
-              </button>
             </div>
           </>
         )}
