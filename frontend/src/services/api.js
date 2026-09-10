@@ -1,14 +1,14 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-let authToken = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+let authToken = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem('auth_token') : null;
 
 export const setAuthToken = (token) => {
   authToken = token;
-  if (typeof window !== 'undefined') {
+  if (typeof window !== 'undefined' && window.localStorage) {
     if (token) {
-      localStorage.setItem('auth_token', token);
+      window.localStorage.setItem('auth_token', token);
     } else {
-      localStorage.removeItem('auth_token');
+      window.localStorage.removeItem('auth_token');
     }
   }
 };

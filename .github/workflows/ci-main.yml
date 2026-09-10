@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   production-tests:
@@ -58,9 +59,20 @@ jobs:
         run: |
           python -m unittest discover -s tests
 
-      - name: Run API Integration Tests
+      - name: Start API Server & Run Integration Tests
         run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          UVICORN_PID=$!
+          echo "Aguardando API FastAPI inicializar..."
+          for i in {1..30}; do
+            if curl -s -f http://127.0.0.1:8000/health > /dev/null; then
+              echo "FastAPI operacional!"
+              break
+            fi
+            sleep 1
+          done
           python test_app.py
+          kill $UVICORN_PID || true
 
   frontend-production-build:
     name: Frontend Production Bundle & Vitest
@@ -148,6 +160,6 @@ jobs:
         run: |
           echo "### 🏆 Main Pipeline (Produção): SUCESSO TOTAL" >> $GITHUB_STEP_SUMMARY
           echo "- **Backend & Segurança**: Testes unitários, validações e blindagem de segurança aprovados" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend Production Build**: Compilação estrita e 68 testes no Vitest aprovados" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Production Build**: Compilação estrita e 69 testes no Vitest aprovados" >> $GITHUB_STEP_SUMMARY
           echo "- **Docker Compose E2E**: Stack multicontêiner ao vivo validada com \`test_e2e.py\` e \`test_e2e_auth.py\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Status de Release**: ESTÁVEL E APROVADO PARA PRODUÇÃO" >> $GITHUB_STEP_SUMMARY

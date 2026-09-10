@@ -14,6 +14,7 @@ from app.auth.security import (
 )
 from app.auth.service import auth_service
 from app.database import get_db
+from app.metrics import record_oauth_login
 from app.models import User
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -33,11 +34,13 @@ def oauth_login(provider: str):
     elif provider == "google":
         client = google_provider
     else:
+        record_oauth_login(provider, "unsupported_provider")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provedor '{provider}' não é suportado.",
         )
 
+    record_oauth_login(provider, "login_started")
     state = generate_oauth_state(provider)
     authorization_url = client.get_authorization_url(state)
     return RedirectResponse(url=authorization_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
@@ -63,6 +66,7 @@ async def oauth_callback(
 
     # 1. Validação estrita de State (Proteção Anti-CSRF e Anti-Adulteração)
     if not state or not verify_oauth_state(state, expected_provider=provider):
+        record_oauth_login(provider, "csrf_rejected")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="State inválido, expirado ou adulterado. Falha de validação de segurança.",
@@ -70,6 +74,7 @@ async def oauth_callback(
 
     # 2. Validação de presença do código de autorização
     if not code:
+        record_oauth_login(provider, "missing_code")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Código de autorização não fornecido pelo provedor.",
@@ -82,7 +87,9 @@ async def oauth_callback(
             provider=provider,
             code=code,
         )
+        record_oauth_login(provider, "success")
     except ValueError as err:
+        record_oauth_login(provider, "callback_failed")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(err),

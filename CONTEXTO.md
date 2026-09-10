@@ -20,14 +20,16 @@ Este projeto é uma aplicação web fullstack com arquitetura moderna e containe
 | **Migrações** | Alembic 1.19 | Gerenciamento versionado e automatizado de DDL e restrições de integridade no banco. |
 | **Validação Backend**| Pydantic v2 / email-validator | Schemas com validação estrita de dados, algoritmo de CPF, formato de CEP e telefone. |
 | **Validação DB** | PostgreSQL CHECK Constraints | Restrições nativas de integridade de dados e validações regex executadas pela engine do banco. |
+| **Observabilidade** | Prometheus / prometheus-client | Métricas de vazão (Throughput), histograma de latência, conexões ativas, contadores de CRUD e eventos OAuth2 com OpenMetrics. |
 | **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva com microinterações. |
 | **Gestão de Auth UI**| React AuthContext | Gerenciamento reativo de sessão, interceptação de token hash (`#token=`) e persistência. |
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
-| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend e frontend com reload instantâneo. |
+| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, frontend e servidor Prometheus com reload instantâneo. |
 | **Testes Frontend**| Vitest + React Testing Library | 11 arquivos de testes (68 testes) cobrindo formatters, componentes, botões OAuth, responsividade mobile/tablet, modais e integração de UI. |
-| **Testes Backend** | Python unittest | 46 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2 e testes de segurança (SQLi, XSS, CSRF, JWT). |
-| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py`), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py`). |
+| **Testes Backend** | Python unittest | 54 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança (SQLi, XSS, CSRF, JWT). |
+| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 16 validações), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py`). |
+
 
 
 ---
@@ -86,10 +88,11 @@ flowchart LR
 ├── app/                              # Módulo do Backend (FastAPI)
 │   ├── __init__.py                   # Inicialização do pacote Python
 │   ├── database.py                   # Engine, SessionLocal e Base do SQLAlchemy
+│   ├── metrics.py                    # Telemetria Prometheus, middleware HTTP e endpoints /metrics e /health
 │   ├── models.py                     # Modelo User com novas colunas e CheckConstraints
 │   ├── schemas.py                    # Schemas Pydantic v2 (Create, Update, Response)
 │   ├── validators.py                 # Funções puras de validação (CPF módulo 11, CEP, Telefone)
-│   └── main.py                       # Rotas da API, auto-migration no lifespan e Swagger
+│   └── main.py                       # Rotas da API, middleware Prometheus e Swagger
 │
 ├── frontend/                         # Aplicação Frontend (React + Vite)
 │   ├── e2e/
@@ -125,20 +128,29 @@ flowchart LR
 │   ├── playwright.config.js          # Configuração do Playwright
 │   └── vite.config.js                # Configuração do Vite e Vitest
 │
+├── prometheus/                       # Configuração do Prometheus Server
+│   └── prometheus.yml                # Job de scrape a cada 10s no backend FastAPI
+│
 ├── tests/                            # Suíte de Testes Unitários do Backend
 │   ├── __init__.py
-│   └── test_unit.py                  # 17 testes unitários (Pydantic, CPF, CEP, idade, Anti-SQLi)
+│   ├── test_metrics.py               # 8 testes de observabilidade, métricas e probes
+│   ├── test_unit.py                  # 17 testes unitários (Pydantic, CPF, CEP, idade, Anti-SQLi)
+│   ├── test_auth_unit.py             # 12 testes de validação unitária de auth
+│   ├── test_auth_security.py         # 10 testes de penetração JWT e CSRF
+│   └── test_auth_integration.py      # 7 testes de fluxo OAuth2 integrado com mocks
 │
 ├── .dockerignore                     # Ignora arquivos desnecessários no build do app
 ├── .env.example                      # Variáveis de ambiente de exemplo
 ├── .gitignore                        # Regras de ignore do Git
 ├── CONTEXTO.md                       # Este documento de contexto e arquitetura
 ├── Dockerfile                        # Imagem Python 3.11 para a API FastAPI
-├── docker-compose.yml                # Orquestrador dos serviços db, app e frontend com volumes
+├── docker-compose.yml                # Orquestrador dos serviços db, app, frontend e prometheus
 ├── README.md                         # Documentação principal e guia de uso
-├── requirements.txt                  # Dependências Python do backend (com alembic)
-├── test_app.py                       # Testes de integração da API em Python
-└── test_e2e.py                       # Teste ponta a ponta (E2E) dos 3 serviços
+├── requirements.txt                  # Dependências Python do backend (com prometheus-client)
+├── test_app.py                       # Testes de integração da API em Python (16 validações)
+├── test_e2e.py                       # Teste ponta a ponta (E2E) dos serviços
+└── test_e2e_auth.py                  # Teste ponta a ponta E2E dos fluxos OAuth2
+
 ```
 
 ---
@@ -184,11 +196,32 @@ Tabela `users`:
 | Método | Rota | Status Code | Descrição e Validações |
 |---|---|---|---|
 | `GET` | `/` | `200 OK` | Mensagem de boas-vindas, versão da API e link para `/docs`. |
+| `GET` | `/health` | `200 OK` / `503` | Health probe ativo com validação de conectividade no banco PostgreSQL (`SELECT 1`). |
+| `GET` | `/metrics` | `200 OK` | Endpoint de telemetria no padrão OpenMetrics para coleta (scraping) pelo Prometheus. |
 | `POST` | `/users/` | `201 Created` | Cria usuário com validação de unicidade de e-mail e persistência 100% parametrizada via ORM. |
 | `GET` | `/users/` | `200 OK` | Listagem com paginação via `skip` e `limit`. |
 | `GET` | `/users/{id}` | `200 OK` | Busca por ID com retorno de ficha completa ou `404 Not Found`. |
 | `PUT` | `/users/{id}` | `200 OK` | Atualização parcial/total com validação de conflito de e-mail (`400 Bad Request`). |
 | `DELETE` | `/users/{id}` | `204 No Content` | Remove usuário permanentemente do banco ou retorna `404 Not Found`. |
+
+### 4.4 Observabilidade, Telemetria & Monitoramento (`app/metrics.py`)
+
+A aplicação conta com arquitetura de observabilidade nativa:
+- **`PrometheusMiddleware`**:
+  - Mede tempo de resposta de cada requisição via `time.perf_counter()`.
+  - Normalização inteligente de rotas: Converte dinamicamente `/users/42` para `/users/{user_id}` através da inspeção do escopo do roteador FastAPI, impedindo vazamento de parâmetros e saturação de memória (*cardinality explosion*).
+  - Rotas não encontradas são mapeadas como `endpoint="not_found"`.
+- **Coletores de Métricas Implementados**:
+  - `http_requests_total` (`Counter`): Vazão total de requisições rotuladas por `method`, `endpoint` e `status_code`.
+  - `http_request_duration_seconds` (`Histogram`): Histograma de latência em segundos com 13 buckets (de 5ms a 10s) rotulados por `method` e `endpoint`.
+  - `http_requests_in_progress` (`Gauge`): Conexões simultâneas ativas por `method`.
+  - `app_users_total` (`Gauge`): Quantidade total de usuários cadastrados no PostgreSQL.
+  - `app_user_operations_total` (`Counter`): Contagem de ações CRUD (`create`, `update`, `delete`) e seus status (`success`, `conflict`, `error`).
+  - `app_oauth_logins_total` (`Counter`): Rastreamento de jornadas de autenticação por provedor (`github`, `google`) e status (`login_started`, `success`, `csrf_rejected`, etc.).
+- **Servidor Prometheus**:
+  - Container `prometheus_service` (`prom/prometheus:v2.51.0`) rodando na porta `9090`.
+  - Arquivo `prometheus/prometheus.yml` configurado com target `app:8000` e intervalo de scrape de 10s.
+
 
 ---
 
@@ -228,20 +261,21 @@ O projeto conta com **cobertura em 4 camadas**, com 100% de sucesso em todas:
 ### Resumo dos Resultados dos Testes
 
 1. **Testes Unitários do Backend (Python unittest):**
-   - **Total:** 17 testes executados, 17 aprovados (`docker compose exec app python -m unittest discover -s tests`).
-   - Cobertura: Algoritmo de CPF oficial, CEP, telefone, limites de idade, obrigatoriedade de campos e imunidade a SQL Injection.
+   - **Total:** 54 testes executados, 54 aprovados (`docker compose exec app python -m unittest discover -s tests`).
+   - Cobertura: Algoritmo de CPF oficial, CEP, telefone, limites de idade, obrigatoriedade de campos, imunidade a SQL Injection, fluxos OAuth2, segurança contra CSRF/JWT e métricas de observabilidade Prometheus com probe de banco.
 
 2. **Testes do Frontend (Vitest + React Testing Library):**
-   - **Total:** 9 arquivos de teste, **53 testes executados, 53 aprovados**.
+   - **Total:** 11 arquivos de teste, **68 testes executados, 68 aprovados**.
    - Comando: `docker compose exec frontend npm test`
 
 3. **Testes de Integração da API (Python):**
-   - **Total:** 14 asserções validando status codes `200`, `201`, `400`, `404`, `422` e `204`, e persistência segura de injeções SQL.
+   - **Total:** 16 asserções validando status codes `200`, `201`, `400`, `404`, `422` e `204`, probe de saúde `/health`, exposição de métricas `/metrics` e persistência segura de injeções SQL.
    - Comando: `python3 test_app.py`
 
 4. **Testes Ponta a Ponta (E2E):**
-   - Valida entrega do HTML no React, bundle do Vite, preflight CORS e jornada completa de usuário no PostgreSQL com novos campos.
-   - Comando: `python3 test_e2e.py`
+   - Valida entrega do HTML no React, bundle do Vite, preflight CORS, jornada completa de usuário no PostgreSQL com novos campos e fluxos de segurança OAuth2.
+   - Comando: `python3 test_e2e.py` e `python3 test_e2e_auth.py`
+
 
 ---
 
@@ -277,3 +311,32 @@ python3 test_e2e.py
 ```bash
 docker compose down
 ```
+
+---
+
+## 8. 🔄 Estratégia de Branches & Esteiras de Integração Contínua (CI/CD)
+
+### 8.1 Modelo de Ramificação (Branching Strategy)
+- **`development`**:
+  - Branch de integração contínua para homologação e desenvolvimento ativo.
+  - Título da API marcado com `[DEVELOPMENT]`, versão `2.2.0-dev`, `environment: development` e `debug: true`.
+  - Frontend apresenta indicador visual ativo na Navbar: `<div className="env-badge dev">Ambiente: DEV</div>`.
+  - É a branch base para PRs de novas features e correções.
+- **`main`**:
+  - Branch principal de produção estável.
+  - Título e versão limpos de produção (`2.1.0`), `environment: production`.
+  - Interface visual limpa, sem badges de desenvolvimento.
+  - Código somente é promovido para a `main` após 100% de aprovação na esteira de CI de `development`.
+
+### 8.2 Workflows do GitHub Actions
+1. **`.github/workflows/ci-development.yml` (Pipeline de Desenvolvimento):**
+   - **Gatilhos**: `push` e `pull_request` direcionados para a branch `development`.
+   - **Jobs**:
+     - `backend-tests`: Sobe PostgreSQL 16 como container de serviço, roda migrações do Alembic, executa 46 testes unitários e de penetração de segurança (`unittest`), seguido dos testes de integração de API (`test_app.py`).
+     - `frontend-tests`: Configura Node.js 20, roda a suíte de 69 testes unitários e de integração com Vitest e executa a compilação de produção via Vite (`npm run build`).
+     - `approval-gate`: Job condicional que consolida o resultado de backend e frontend, gerando o relatório do GitHub Step Summary com o status de **APROVAÇÃO** para merge na `main`.
+2. **`.github/workflows/ci-main.yml` (Pipeline de Produção):**
+   - **Gatilhos**: `push` e `pull_request` direcionados para a branch `main`.
+   - **Jobs**:
+     - `production-test-and-verify`: Executa testes unitários, de segurança e Vitest em paralelo.
+     - `production-e2e-live`: Sobe a infraestrutura completa do Docker Compose (`fastapi_app`, `postgres_db`, `react_frontend`), aguarda a prontidão dos serviços via healthchecks e executa a validação ponta a ponta ao vivo (`test_e2e.py` e `test_e2e_auth.py`).

@@ -59,4 +59,9 @@ describe('Navbar Component Tests', () => {
     logoutBtn.click();
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
+
+  it('exibe o badge identificador de ambiente DEV', () => {
+    render(<Navbar totalUsers={2} isOnline={true} />);
+    expect(screen.getByText('Ambiente: DEV')).toBeInTheDocument();
+  });
 });

@@ -1,5 +1,9 @@
 import os
 
+# Configurações de Ambiente
+ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
+DEBUG: bool = os.getenv("DEBUG", "True").lower() in ("true", "1", "yes")
+
 # Configurações de JWT
 JWT_SECRET_KEY: str = os.getenv(
     "JWT_SECRET_KEY",

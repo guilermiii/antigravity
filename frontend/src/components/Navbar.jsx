@@ -24,6 +24,11 @@ export default function Navbar({ totalUsers = 0, isOnline = true }) {
             <strong>{totalUsers}</strong> {totalUsers === 1 ? 'usuário' : 'usuários'}
           </span>
 
+          <div className="env-badge dev" title="Ambiente de Desenvolvimento & Homologação">
+            <span className="env-dot" />
+            <span>Ambiente: DEV</span>
+          </div>
+
           <div className={`api-badge ${isOnline ? '' : 'offline'}`}>
             <span className="status-dot" />
             <span>{isOnline ? 'API Conectada' : 'API Desconectada'}</span>
