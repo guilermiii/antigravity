@@ -1,15 +1,34 @@
 import React from 'react';
-import { Users, LogOut, ShieldCheck } from 'lucide-react';
+import { Users, LogOut, ShieldCheck, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import AuthButtons from './AuthButtons';
 
-export default function Navbar({ totalUsers = 0, isOnline = true }) {
+export default function Navbar({
+  totalUsers = 0,
+  isOnline = true,
+  onNavigateToLogin,
+  onNavigateToDashboard,
+  currentView = 'dashboard',
+}) {
   const { user, isAuthenticated, logout } = useAuth();
 
   return (
     <header className="navbar">
       <div className="navbar-inner">
-        <div className="brand">
+        <div
+          className="brand"
+          onClick={onNavigateToDashboard}
+          style={onNavigateToDashboard ? { cursor: 'pointer' } : undefined}
+          role={onNavigateToDashboard ? 'button' : undefined}
+          tabIndex={onNavigateToDashboard ? 0 : undefined}
+          onKeyDown={
+            onNavigateToDashboard
+              ? (e) => {
+                  if (e.key === 'Enter' || e.key === ' ') onNavigateToDashboard();
+                }
+              : undefined
+          }
+        >
           <div className="brand-icon">
             <Users size={20} />
           </div>
@@ -63,7 +82,33 @@ export default function Navbar({ totalUsers = 0, isOnline = true }) {
               </button>
             </div>
           ) : (
-            <AuthButtons compact />
+            <div className="auth-nav-container" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {currentView !== 'login' && onNavigateToLogin && (
+                <button
+                  type="button"
+                  className="btn-nav-login"
+                  onClick={onNavigateToLogin}
+                  title="Acessar tela de login"
+                  aria-label="Fazer Login"
+                >
+                  <LogIn size={15} />
+                  <span>Fazer Login</span>
+                </button>
+              )}
+              {currentView === 'login' && onNavigateToDashboard && (
+                <button
+                  type="button"
+                  className="btn-nav-login"
+                  onClick={onNavigateToDashboard}
+                  title="Ir para o Painel"
+                  aria-label="Ir para o Painel"
+                >
+                  <Users size={15} />
+                  <span>Ir para o Painel</span>
+                </button>
+              )}
+              <AuthButtons compact />
+            </div>
           )}
         </div>
       </div>

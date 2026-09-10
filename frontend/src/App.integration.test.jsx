@@ -239,4 +239,50 @@ describe('App Integration Tests (CRUD Flow)', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('permite navegar para a tela de login pelo botão da Navbar e retornar ao painel como visitante', async () => {
+    const user = userEvent.setup();
+    window.location.hash = '';
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
+    });
+
+    const loginNavBtn = screen.getByRole('button', { name: /fazer login/i });
+    await user.click(loginNavBtn);
+
+    expect(screen.getByText('Acesse sua Conta')).toBeInTheDocument();
+    expect(screen.getByText('Continuar com GitHub')).toBeInTheDocument();
+    expect(screen.getByText('Continuar com Google')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Silva')).not.toBeInTheDocument();
+
+    const guestBtn = screen.getByRole('button', { name: /continuar como visitante/i });
+    await user.click(guestBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
+    });
+  });
+
+  it('renderiza a tela de login diretamente se inicializado com hash #login', async () => {
+    const user = userEvent.setup();
+    window.location.hash = '#login';
+    render(<App />);
+
+    await waitFor(() => {
+      expect(api.getUsers).toHaveBeenCalled();
+    });
+
+    expect(screen.getByText('Acesse sua Conta')).toBeInTheDocument();
+    expect(screen.queryByText('Alice Silva')).not.toBeInTheDocument();
+
+    const guestBtn = screen.getByRole('button', { name: /continuar como visitante/i });
+    await user.click(guestBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
+    });
+    window.location.hash = '';
+  });
 });

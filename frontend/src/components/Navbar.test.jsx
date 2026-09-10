@@ -1,10 +1,14 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Navbar from './Navbar';
 import * as AuthContextModule from '../context/AuthContext';
 
 describe('Navbar Component Tests', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renderiza o título da aplicação', () => {
     render(<Navbar totalUsers={5} isOnline={true} />);
     expect(screen.getByText('Gestão de Usuários')).toBeInTheDocument();
@@ -63,5 +67,37 @@ describe('Navbar Component Tests', () => {
   it('exibe o badge identificador de ambiente DEV', () => {
     render(<Navbar totalUsers={2} isOnline={true} />);
     expect(screen.getByText('Ambiente: DEV')).toBeInTheDocument();
+  });
+
+  it('chama onNavigateToLogin ao clicar no botão Fazer Login quando fornecido', () => {
+    const handleLogin = vi.fn();
+    render(
+      <Navbar
+        totalUsers={0}
+        isOnline={true}
+        onNavigateToLogin={handleLogin}
+        currentView="dashboard"
+      />
+    );
+    const loginBtn = screen.getByRole('button', { name: /fazer login/i });
+    expect(loginBtn).toBeInTheDocument();
+    loginBtn.click();
+    expect(handleLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('chama onNavigateToDashboard ao clicar no botão Ir para o Painel quando na tela de login', () => {
+    const handleDashboard = vi.fn();
+    render(
+      <Navbar
+        totalUsers={0}
+        isOnline={true}
+        onNavigateToDashboard={handleDashboard}
+        currentView="login"
+      />
+    );
+    const dashboardBtn = screen.getByRole('button', { name: /ir para o painel/i });
+    expect(dashboardBtn).toBeInTheDocument();
+    dashboardBtn.click();
+    expect(handleDashboard).toHaveBeenCalledTimes(1);
   });
 });

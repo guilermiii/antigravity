@@ -7,11 +7,18 @@ import UserFormModal from './components/UserFormModal';
 import UserDetailModal from './components/UserDetailModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import Toast from './components/Toast';
+import LoginScreen from './components/LoginScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
   const [users, setUsers] = useState([]);
   const { authError, clearAuthError } = useAuth() || {};
+
+  const [currentView, setCurrentView] = useState(() => {
+    return typeof window !== 'undefined' && window.location.hash === '#login'
+      ? 'login'
+      : 'dashboard';
+  });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
@@ -156,49 +163,92 @@ function AppContent() {
     }
   };
 
+  // Sincronização da rota por Hash (#login)
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (typeof window !== 'undefined') {
+        if (window.location.hash === '#login') {
+          setCurrentView('login');
+        } else if (
+          !window.location.hash ||
+          window.location.hash === '#' ||
+          window.location.hash === '#dashboard'
+        ) {
+          setCurrentView('dashboard');
+        }
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  const navigateToLogin = () => {
+    setCurrentView('login');
+    if (typeof window !== 'undefined') {
+      window.location.hash = 'login';
+    }
+  };
+
+  const navigateToDashboard = () => {
+    setCurrentView('dashboard');
+    if (typeof window !== 'undefined' && window.location.hash === '#login') {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+  };
+
   return (
     <>
-      <Navbar totalUsers={users.length} isOnline={isOnline} />
+      <Navbar
+        totalUsers={users.length}
+        isOnline={isOnline}
+        onNavigateToLogin={navigateToLogin}
+        onNavigateToDashboard={navigateToDashboard}
+        currentView={currentView}
+      />
 
-      <main className="container">
-        <div className="actions-bar">
-          <div className="search-box">
-            <Search size={18} className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Buscar por nome, e-mail, CPF ou cidade..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      {currentView === 'login' ? (
+        <LoginScreen onNavigateToDashboard={navigateToDashboard} />
+      ) : (
+        <main className="container">
+          <div className="actions-bar">
+            <div className="search-box">
+              <Search size={18} className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Buscar por nome, e-mail, CPF ou cidade..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="actions-buttons">
+              <button
+                className="btn btn-secondary"
+                onClick={fetchUsers}
+                disabled={isLoading}
+                title="Atualizar dados"
+              >
+                <RefreshCw size={16} className={isLoading ? 'spinner' : ''} />
+                <span>Recarregar</span>
+              </button>
+              <button className="btn btn-primary" onClick={handleOpenCreate}>
+                <UserPlus size={16} />
+                <span>Novo Usuário</span>
+              </button>
+            </div>
           </div>
 
-          <div className="actions-buttons">
-            <button
-              className="btn btn-secondary"
-              onClick={fetchUsers}
-              disabled={isLoading}
-              title="Atualizar dados"
-            >
-              <RefreshCw size={16} className={isLoading ? 'spinner' : ''} />
-              <span>Recarregar</span>
-            </button>
-            <button className="btn btn-primary" onClick={handleOpenCreate}>
-              <UserPlus size={16} />
-              <span>Novo Usuário</span>
-            </button>
-          </div>
-        </div>
-
-        <UserTable
-          users={filteredUsers}
-          isLoading={isLoading}
-          onEdit={handleOpenEdit}
-          onDelete={handleOpenDelete}
-          onView={handleOpenDetail}
-          onNewUser={handleOpenCreate}
-        />
-      </main>
+          <UserTable
+            users={filteredUsers}
+            isLoading={isLoading}
+            onEdit={handleOpenEdit}
+            onDelete={handleOpenDelete}
+            onView={handleOpenDetail}
+            onNewUser={handleOpenCreate}
+          />
+        </main>
+      )}
 
       {/* Modal de Formulário (Criar / Editar) */}
       <UserFormModal
