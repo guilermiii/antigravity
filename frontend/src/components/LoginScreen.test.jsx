@@ -69,13 +69,11 @@ describe('LoginScreen Component Tests (TDD)', () => {
     expect(mockLoginWithProvider).toHaveBeenCalledWith('google');
   });
 
-  it('aciona onNavigateToDashboard ao clicar no botão de continuar como visitante', () => {
+  it('não exibe opção nem botão de continuar como visitante (acesso restrito obrigatório)', () => {
     render(<LoginScreen onNavigateToDashboard={mockNavigateToDashboard} />);
 
-    const backBtn = screen.getByRole('button', { name: /continuar como visitante/i });
-    fireEvent.click(backBtn);
-
-    expect(mockNavigateToDashboard).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /continuar como visitante/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/visitante/i)).not.toBeInTheDocument();
   });
 
   it('exibe banner de alerta e aciona clearAuthError quando authError estiver presente', () => {

@@ -13,10 +13,14 @@ vi.mock('./services/api', () => ({
     createUser: vi.fn(),
     updateUser: vi.fn(),
     deleteUser: vi.fn(),
+    getMe: vi.fn(),
+    logout: vi.fn(),
+    getAuthToken: vi.fn(),
+    setAuthToken: vi.fn(),
   },
 }));
 
-describe('App Integration Tests (CRUD Flow)', () => {
+describe('App Integration Tests (CRUD Flow & Auth Guard)', () => {
   const initialUsers = [
     {
       id: 1,
@@ -40,9 +44,31 @@ describe('App Integration Tests (CRUD Flow)', () => {
     },
   ];
 
+  const authenticateUser = (userData = null) => {
+    const defaultUser = {
+      id: 1,
+      nome: 'Alice',
+      sobrenome: 'Silva',
+      email: 'alice@example.com',
+      avatar_url: 'https://example.com/avatar.jpg',
+    };
+    const userToSet = userData || defaultUser;
+    window.localStorage.setItem('auth_token', 'valid_test_jwt_token');
+    api.getAuthToken.mockReturnValue('valid_test_jwt_token');
+    api.getMe.mockResolvedValue(userToSet);
+  };
+
+  const clearAuthentication = () => {
+    window.localStorage.removeItem('auth_token');
+    api.getAuthToken.mockReturnValue(null);
+    api.getMe.mockResolvedValue(null);
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    window.location.hash = '';
     api.getUsers.mockResolvedValue([...initialUsers]);
+    authenticateUser();
   });
 
   it('carrega e exibe a listagem inicial de usuários da API', async () => {
@@ -240,49 +266,52 @@ describe('App Integration Tests (CRUD Flow)', () => {
     });
   });
 
-  it('permite navegar para a tela de login pelo botão da Navbar e retornar ao painel como visitante', async () => {
-    const user = userEvent.setup();
-    window.location.hash = '';
+  it('bloqueia acesso ao sistema quando não autenticado: exibe apenas LoginScreen e não requisita usuários', async () => {
+    clearAuthentication();
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
-    });
+    expect(screen.getByRole('heading', { level: 1, name: /acesse sua conta/i })).toBeInTheDocument();
+    expect(screen.getByText(/continuar com github/i)).toBeInTheDocument();
+    expect(screen.getByText(/continuar com google/i)).toBeInTheDocument();
 
-    const loginNavBtn = screen.getByRole('button', { name: /fazer login/i });
-    await user.click(loginNavBtn);
-
-    expect(screen.getByText('Acesse sua Conta')).toBeInTheDocument();
-    expect(screen.getByText('Continuar com GitHub')).toBeInTheDocument();
-    expect(screen.getByText('Continuar com Google')).toBeInTheDocument();
+    // Dados e ações do sistema NÃO devem ser renderizados
     expect(screen.queryByText('Alice Silva')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bruno Souza')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /novo usuário/i })).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/buscar por nome/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /continuar como visitante/i })).not.toBeInTheDocument();
 
-    const guestBtn = screen.getByRole('button', { name: /continuar como visitante/i });
-    await user.click(guestBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText('Alice Silva')).toBeInTheDocument();
-    });
+    // api.getUsers NÃO deve ter sido chamado
+    expect(api.getUsers).not.toHaveBeenCalled();
   });
 
-  it('renderiza a tela de login diretamente se inicializado com hash #login', async () => {
-    const user = userEvent.setup();
-    window.location.hash = '#login';
+  it('não permite burlar o login via hash na URL (#dashboard) quando não autenticado', async () => {
+    clearAuthentication();
+    window.location.hash = '#dashboard';
     render(<App />);
 
-    await waitFor(() => {
-      expect(api.getUsers).toHaveBeenCalled();
-    });
-
-    expect(screen.getByText('Acesse sua Conta')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /acesse sua conta/i })).toBeInTheDocument();
     expect(screen.queryByText('Alice Silva')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /novo usuário/i })).not.toBeInTheDocument();
+    expect(api.getUsers).not.toHaveBeenCalled();
+  });
 
-    const guestBtn = screen.getByRole('button', { name: /continuar como visitante/i });
-    await user.click(guestBtn);
+  it('ao clicar em logout na Navbar, encerra a sessão e retorna imediatamente à tela de login, ocultando o sistema', async () => {
+    const user = userEvent.setup();
+    render(<App />);
 
     await waitFor(() => {
       expect(screen.getByText('Alice Silva')).toBeInTheDocument();
     });
-    window.location.hash = '';
+
+    const logoutBtn = screen.getByRole('button', { name: /encerrar sessão/i });
+    await user.click(logoutBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: /acesse sua conta/i })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Alice Silva')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /novo usuário/i })).not.toBeInTheDocument();
   });
 });

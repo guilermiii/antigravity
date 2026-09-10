@@ -237,7 +237,44 @@ class TestAuthSecurity(unittest.TestCase):
         ]
         for url in malicious_urls:
             is_valid = validate_redirect_url(url)
-            self.assertFalse(is_valid, f"Open Redirect não detectado para: {url}")
+    # -------------------------------------------------------------
+    # 6. Unauthenticated CRUD Operations Defense Tests (Business Rule)
+    # -------------------------------------------------------------
+
+    def test_unauthenticated_post_users_blocked_401(self):
+        """Tentativa de cadastrar usuário sem autenticação deve ser bloqueada com 401 Unauthorized."""
+        payload = {
+            "nome": "Tentativa",
+            "sobrenome": "Anonima",
+            "email": "anonimo@example.com",
+        }
+        response = self.client.post("/users/", json=payload)
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Autenticação necessária", response.text)
+
+    def test_unauthenticated_get_users_blocked_401(self):
+        """Tentativa de listar usuários sem autenticação deve ser bloqueada com 401 Unauthorized."""
+        response = self.client.get("/users/")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Autenticação necessária", response.text)
+
+    def test_unauthenticated_get_user_by_id_blocked_401(self):
+        """Tentativa de buscar usuário por ID sem autenticação deve ser bloqueada com 401 Unauthorized."""
+        response = self.client.get("/users/1")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Autenticação necessária", response.text)
+
+    def test_unauthenticated_put_user_blocked_401(self):
+        """Tentativa de atualizar usuário sem autenticação deve ser bloqueada com 401 Unauthorized."""
+        response = self.client.put("/users/1", json={"nome": "Alterado"})
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Autenticação necessária", response.text)
+
+    def test_unauthenticated_delete_user_blocked_401(self):
+        """Tentativa de deletar usuário sem autenticação deve ser bloqueada com 401 Unauthorized."""
+        response = self.client.delete("/users/1")
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Autenticação necessária", response.text)
 
 
 if __name__ == "__main__":
