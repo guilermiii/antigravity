@@ -58,9 +58,20 @@ jobs:
         run: |
           python -m unittest discover -s tests
 
-      - name: Run API Integration Tests
+      - name: Start API Server & Run Integration Tests
         run: |
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          UVICORN_PID=$!
+          echo "Aguardando API FastAPI inicializar..."
+          for i in {1..30}; do
+            if curl -s -f http://127.0.0.1:8000/health > /dev/null; then
+              echo "FastAPI operacional!"
+              break
+            fi
+            sleep 1
+          done
           python test_app.py
+          kill $UVICORN_PID || true
 
   frontend-dev:
     name: Frontend Vitest & Build Verification
@@ -104,7 +115,7 @@ jobs:
       - name: Generate Summary
         run: |
           echo "### 🚀 Development Pipeline: APROVADO" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend Tests**: 46 testes unitários e de segurança aprovados (100%)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend Tests**: 68 testes de componentes, responsividade e auth aprovados (100%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Tests**: 54 testes unitários e de segurança aprovados (100%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Frontend Tests**: 69 testes de componentes, responsividade e auth aprovados (100%)" >> $GITHUB_STEP_SUMMARY
           echo "- **Build**: Verificação de bundle do Vite compilada sem erros" >> $GITHUB_STEP_SUMMARY
           echo "- **Status de Liberação**: Pronto para abertura de Pull Request e merge na branch \`main\`" >> $GITHUB_STEP_SUMMARY

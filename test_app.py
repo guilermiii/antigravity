@@ -1,14 +1,52 @@
 """Script de teste de integração automatizado para validar a API FastAPI e o Banco PostgreSQL."""
 
 import json
+import os
 import time
 import urllib.error
 import urllib.request
 
-BASE_URL = "http://localhost:8000"
+BASE_URL = os.getenv("API_URL", os.getenv("BASE_URL", "http://127.0.0.1:8000"))
+
+_test_client = None
+_use_test_client = None
+
+
+def _init_client():
+    global _test_client, _use_test_client
+    if _use_test_client is not None:
+        return
+    if os.getenv("USE_TESTCLIENT", "").lower() in ("1", "true"):
+        _use_test_client = True
+    else:
+        try:
+            req = urllib.request.Request(f"{BASE_URL}/", method="GET")
+            with urllib.request.urlopen(req, timeout=1.5):
+                _use_test_client = False
+        except Exception:
+            _use_test_client = True
+
+    if _use_test_client:
+        try:
+            from fastapi.testclient import TestClient
+            from app.main import app
+
+            _test_client = TestClient(app)
+            print("[test_app] Servidor HTTP não detectado ou USE_TESTCLIENT ativo. Utilizando FastAPI TestClient.")
+        except Exception as exc:
+            print(f"[test_app] Aviso: Falha ao inicializar TestClient: {exc}. Usando fallback HTTP.")
+            _use_test_client = False
 
 
 def make_request(method: str, path: str, data: dict = None):
+    _init_client()
+    if _use_test_client and _test_client is not None:
+        resp = _test_client.request(method, path, json=data)
+        try:
+            return resp.status_code, resp.json()
+        except Exception:
+            return resp.status_code, resp.text
+
     url = f"{BASE_URL}{path}"
     headers = {"Content-Type": "application/json"} if data else {}
     body = json.dumps(data).encode("utf-8") if data else None
@@ -16,7 +54,10 @@ def make_request(method: str, path: str, data: dict = None):
     try:
         with urllib.request.urlopen(req) as resp:
             content = resp.read().decode("utf-8")
-            return resp.status, json.loads(content) if content else None
+            try:
+                return resp.status, json.loads(content) if content else None
+            except Exception:
+                return resp.status, content
     except urllib.error.HTTPError as e:
         content = e.read().decode("utf-8")
         try:
@@ -33,6 +74,12 @@ def run_tests():
     status, res = make_request("GET", "/")
     assert status == 200, f"Falha no GET /: {status}"
     print("✔ GET / OK")
+
+    # 1.1 Health Probe
+    status, health = make_request("GET", "/health")
+    assert status == 200 and health.get("status") == "healthy", f"Falha no GET /health: {status}, {health}"
+    assert health.get("database") == "connected"
+    print("✔ GET /health (PostgreSQL probe conectado) OK")
 
     # 2. Criar Usuário com apenas campos obrigatórios (nome, sobrenome, email)
     mandatory_payload = {
@@ -197,6 +244,16 @@ def run_tests():
     status, _ = make_request("GET", f"/users/{user_id}")
     assert status == 404
     print("✔ Verificação pós-deleção OK (404 Not Found)")
+
+    # 16. Prometheus Metrics Scrape Endpoint
+    status, metrics_text = make_request("GET", "/metrics")
+    assert status == 200, f"Falha no GET /metrics: {status}"
+    assert isinstance(metrics_text, str), "Resposta de /metrics deve ser texto puro"
+    assert "http_requests_total" in metrics_text
+    assert "http_request_duration_seconds" in metrics_text
+    assert "app_users_total" in metrics_text
+    assert "app_user_operations_total" in metrics_text
+    print("✔ GET /metrics (Prometheus OpenMetrics exposition format) OK")
 
     print("\n🎉 Todos os testes de integração da API foram executados com sucesso!")
 
