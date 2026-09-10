@@ -47,7 +47,19 @@ services:
     depends_on:
       - app
 
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: prometheus_service
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - app
+
 
 volumes:
   postgres_data:
+
 

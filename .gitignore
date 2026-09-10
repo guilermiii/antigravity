@@ -41,4 +41,6 @@ blob-report/
 .env
 .DS_Store
 .obsidian/
+.agents/
+frontend/dist.old/
 

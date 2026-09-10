@@ -15,16 +15,18 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
   - **Alembic**: Sistema de migrações versionadas e idempotentes do banco de dados.
   - **Pydantic v2**: Validação estrita de tipos, algoritmo de dígitos verificadores do CPF, CEP e telefone.
   - **PostgreSQL 16**: Banco de dados relacional com restrições `CHECK`, `NOT NULL`, `UNIQUE` e tabela relacional `oauth_accounts`.
+  - **Prometheus Client & OpenMetrics**: Instrumentação completa de observabilidade, latência por histograma, contadores de throughput e métricas de negócio.
 - **Frontend**:
   - **React 18 + Vite 5**: SPA moderna, limpa e responsiva.
   - **Auth Context**: Gerenciamento de sessão JWT, captura de token por fragmento de URL (`#token=...`) e persistência segura.
   - **Lucide React**: Ícones minimalistas.
   - **Design Clean**: Tipografia Inter, botões OAuth2 de GitHub e Google, badges de perfil na Navbar e modal de detalhes.
-- **DevOps & Testes**:
-  - **Docker & Docker Compose**: Orquestração completa de banco, backend e frontend com reload instantâneo e espelhamento de volume.
+- **DevOps, Observabilidade & Testes**:
+  - **Docker & Docker Compose**: Orquestração integrada de banco PostgreSQL, backend FastAPI, frontend React e servidor Prometheus.
+  - **Prometheus Server (v2.51)**: Coletor de métricas nativo com scraping a cada 10s e painel de consulta PromQL.
   - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (68 testes).
-  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2 e penetração contra SQLi, XSS, CSRF e tokens (46 testes).
-  - **Testes E2E Automatizados**: Dois scripts de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`).
+  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2, segurança e métricas Prometheus (54 testes).
+  - **Testes E2E Automatizados**: Dois scripts de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`) e integração de API (`test_app.py`).
 
 
 ---
@@ -59,10 +61,11 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
 ├── app/                  # Backend FastAPI
 │   ├── __init__.py
 │   ├── database.py       # Engine e Session do SQLAlchemy
+│   ├── metrics.py        # Instrumentação Prometheus, middleware e endpoints /metrics e /health
 │   ├── models.py         # Modelo de Usuário e CheckConstraints
 │   ├── schemas.py        # Schemas Pydantic v2 com validações
 │   ├── validators.py     # Algoritmo de CPF, CEP e Telefone
-│   └── main.py           # Endpoints CRUD, auto-migrations no lifespan e Swagger
+│   └── main.py           # Endpoints CRUD, middleware e Swagger
 ├── frontend/             # Frontend React (Vite)
 │   ├── src/
 │   │   ├── components/   # Navbar, UserTable, UserFormModal, UserDetailModal, Toast
@@ -71,11 +74,17 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
 │   │   ├── App.jsx       # Componente principal do CRUD
 │   │   └── index.css     # Estilos clean e responsivos
 │   └── package.json
+├── prometheus/           # Configuração do coletor Prometheus
+│   └── prometheus.yml    # Scrape job para o backend FastAPI (:8000/metrics)
 ├── tests/                # Testes unitários do backend
-│   └── test_unit.py
-├── docker-compose.yml    # Orquestração de Postgres, Backend e Frontend
+│   ├── test_metrics.py   # Testes dos endpoints Prometheus, anti-cardinalidade e health
+│   ├── test_unit.py      # Validadores, CPF e Anti-SQLi
+│   ├── test_auth_unit.py # Validadores unitários de Auth
+│   ├── test_auth_security.py # Ataques JWT e CSRF
+│   └── test_auth_integration.py # Fluxo OAuth com mocks
+├── docker-compose.yml    # Orquestração de Postgres, Backend, Frontend e Prometheus
 ├── Dockerfile            # Containerização do backend FastAPI
-├── requirements.txt      # Dependências Python (incluindo alembic)
+├── requirements.txt      # Dependências Python (incluindo prometheus-client)
 ├── test_app.py           # Testes de integração da API
 ├── test_e2e.py           # Testes ponta a ponta (E2E)
 ├── CONTEXTO.md           # Documentação técnica detalhada
@@ -95,7 +104,9 @@ docker compose up -d --build
 Os serviços serão iniciados e o Alembic aplicará as migrações automaticamente no PostgreSQL:
 - **Frontend React**: [http://localhost:3000](http://localhost:3000)
 - **API FastAPI (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Painel Prometheus**: [http://localhost:9090](http://localhost:9090)
+- **Endpoint de Métricas**: [http://localhost:8000/metrics](http://localhost:8000/metrics)
+- **Endpoint de Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
 - **PostgreSQL**: Porta `5432`
 
 ---
@@ -105,11 +116,14 @@ Os serviços serão iniciados e o Alembic aplicará as migrações automaticamen
 | Método | Rota | Descrição |
 |---|---|---|
 | `GET` | `/` | Status da API e link para a documentação interativa |
+| `GET` | `/health` | Health check ativo com probe de conectividade no banco PostgreSQL (`SELECT 1`) |
+| `GET` | `/metrics` | Exposição de métricas no padrão OpenMetrics para coleta pelo Prometheus |
 | `POST` | `/users/` | Cadastra um novo usuário (validações Pydantic + PostgreSQL) |
 | `GET` | `/users/` | Lista usuários cadastrados (com paginação `skip` e `limit`) |
 | `GET` | `/users/{id}` | Consulta detalhes e ficha completa de um usuário por ID |
 | `PUT` | `/users/{id}` | Atualiza campos de um usuário (parcial ou total) |
 | `DELETE` | `/users/{id}` | Remove um usuário por ID |
+
 
 ---
 
@@ -171,20 +185,48 @@ curl -X DELETE "http://localhost:8000/users/1"
 
 ---
 
+## 📊 Observabilidade e Monitoramento com Prometheus
+
+A aplicação conta com instrumentação de ponta a ponta para monitoramento em tempo real através do **Prometheus** e métricas expostas no padrão **OpenMetrics**:
+
+### 🎯 Principais Métricas Coletadas
+
+| Métrica | Tipo | Labels | Descrição |
+|---|---|---|---|
+| `http_requests_total` | Counter | `method`, `endpoint`, `status_code` | Total acumulado de requisições HTTP processadas |
+| `http_request_duration_seconds` | Histogram | `method`, `endpoint` | Distribuição da latência das requisições em segundos (buckets de 5ms a 10s) |
+| `http_requests_in_progress` | Gauge | `method` | Conexões e requisições concorrentes ativas em tempo real |
+| `app_users_total` | Gauge | - | Total de usuários cadastrados no PostgreSQL |
+| `app_user_operations_total` | Counter | `operation`, `status` | Contagem de operações de CRUD (`create`, `update`, `delete`) |
+| `app_oauth_logins_total` | Counter | `provider`, `status` | Tentativas e desfechos de autenticação OAuth2 (`github`, `google`) |
+
+### 🛡️ Prevenção de Alta Cardinalidade (Anti-Cardinality Explosion)
+O middleware do backend normaliza automaticamente rotas parametrizadas (por exemplo, transformando chamadas a `/users/42` ou `/users/105` no template `/users/{user_id}`). Rotas inexistentes são agrupadas como `not_found`, garantindo estabilidade e memória constante no Prometheus.
+
+### 📈 Exemplos de Consultas PromQL
+No painel do Prometheus ([http://localhost:9090](http://localhost:9090)):
+- **Taxa de requisições por segundo**: `rate(http_requests_total[1m])`
+- **Percentil 95 de latência da API**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, endpoint))`
+- **Taxa de erros (status 4xx / 5xx)**: `sum(rate(http_requests_total{status_code=~"[45].."}[1m]))`
+- **Total de usuários no sistema**: `app_users_total`
+
+---
+
 ## 🧪 Como Executar os Testes (Metodologia TDD)
  
  Com os containers em execução (`docker compose up -d`), execute todas as camadas da pirâmide de testes:
  
 ### 1. Testes Unitários e de Segurança do Backend (Python unittest)
-Valida regras de negócio puras, algoritmos de validação, fluxos OAuth2, JWT e **blindagem contra SQL Injection, XSS, CSRF, Replay e Alg: None** (46 testes):
+Valida regras de negócio puras, validadores de CPF/CEP, observabilidade Prometheus, fluxos OAuth2, JWT e **blindagem contra SQLi, XSS, CSRF e Alg: None** (54 testes):
 ```bash
 docker compose exec app python -m unittest discover -s tests
 ```
 
-Para executar especificamente a suíte de segurança:
+Para executar especificamente a suíte de métricas e observabilidade:
 ```bash
-docker compose exec app python -m unittest tests/test_auth_security.py
+docker compose exec app python -m unittest tests/test_metrics.py
 ```
+
 
 ### 2. Testes do Frontend (Vitest + React Testing Library)
 Executa 68 testes cobrindo formatadores, botões OAuth2, perfil da Navbar, responsividade mobile/tablet, componentes, máscaras, modais e fluxo integrado da UI:

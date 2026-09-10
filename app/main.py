@@ -9,7 +9,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.router import router as auth_router
-from app.database import Base, engine, get_db
+from app.database import Base, SessionLocal, engine, get_db
+from app.metrics import (
+    APP_USERS_TOTAL,
+    PrometheusMiddleware,
+    record_user_operation,
+    router as metrics_router,
+    sync_users_gauge,
+)
 from app.models import User
 from app.schemas import UserCreate, UserResponse, UserUpdate
 
@@ -23,6 +30,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[Lifespan] Aviso ao rodar migrações Alembic: {e}")
         Base.metadata.create_all(bind=engine)
+
+    # Sincroniza métricas do Prometheus no startup
+    try:
+        db = SessionLocal()
+        try:
+            sync_users_gauge(db)
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Lifespan] Aviso ao sincronizar métricas Prometheus: {e}")
+
     yield
 
 
@@ -31,12 +49,16 @@ app = FastAPI(
     description=(
         "Sistema completo de CRUD de usuários e autenticação federada OAuth 2.0 (GitHub e Google) com JWT, "
         "validações no Backend (Pydantic v2), validações nativas no banco de dados (PostgreSQL CHECK Constraints), "
-        "migrações versionadas com Alembic e proteção integral contra SQL Injection e Script Injection (XSS). "
+        "migrações versionadas com Alembic, proteção integral contra SQL Injection e Script Injection (XSS) "
+        "e observabilidade com Prometheus. "
         "[AMBIENTE DE DESENVOLVIMENTO & HOMOLOGAÇÃO]"
     ),
     version="2.2.0-dev",
     lifespan=lifespan,
 )
+
+# Middleware do Prometheus para telemetria de requisições e latência
+app.add_middleware(PrometheusMiddleware)
 
 # Configuração de CORS para permitir requisições do frontend React
 app.add_middleware(
@@ -47,8 +69,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Inclusão do roteador de autenticação OAuth2 & JWT
+# Inclusão dos roteadores da API
 app.include_router(auth_router)
+app.include_router(metrics_router)
 
 
 
@@ -92,6 +115,7 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     # 1. Validação de unicidade do e-mail
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
+        record_user_operation("create", "conflict")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Já existe um usuário cadastrado com este e-mail.",
@@ -105,8 +129,11 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
+        APP_USERS_TOTAL.inc()
+        record_user_operation("create", "success")
     except IntegrityError as err:
         db.rollback()
+        record_user_operation("create", "error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro de restrição no banco de dados: {str(err.orig)}",
@@ -172,6 +199,7 @@ def update_user(
 ):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        record_user_operation("update", "not_found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado.",
@@ -185,6 +213,7 @@ def update_user(
             .first()
         )
         if email_in_use:
+            record_user_operation("update", "conflict")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Já existe outro usuário cadastrado com este e-mail.",
@@ -198,8 +227,10 @@ def update_user(
     try:
         db.commit()
         db.refresh(user)
+        record_user_operation("update", "success")
     except IntegrityError as err:
         db.rollback()
+        record_user_operation("update", "error")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Erro de restrição no banco de dados: {str(err.orig)}",
@@ -222,6 +253,7 @@ def update_user(
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
+        record_user_operation("delete", "not_found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Usuário não encontrado.",
@@ -229,4 +261,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
 
     db.delete(user)
     db.commit()
+    APP_USERS_TOTAL.dec()
+    record_user_operation("delete", "success")
     return None
+
