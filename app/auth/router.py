@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     summary="Iniciar autenticação OAuth2",
     description="Gera o state criptográfico anti-CSRF e redireciona para a página de autorização do provedor (GitHub ou Google).",
     response_class=RedirectResponse,
-    status_code=status.HTTP_307_TEMPORARY_REDIRECT,
+    status_code=status.HTTP_302_FOUND,
 )
 def oauth_login(provider: str):
     provider = provider.lower()
@@ -43,7 +43,7 @@ def oauth_login(provider: str):
     record_oauth_login(provider, "login_started")
     state = generate_oauth_state(provider)
     authorization_url = client.get_authorization_url(state)
-    return RedirectResponse(url=authorization_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return RedirectResponse(url=authorization_url, status_code=status.HTTP_302_FOUND)
 
 
 @router.get(
@@ -53,8 +53,10 @@ def oauth_login(provider: str):
 )
 async def oauth_callback(
     provider: str,
-    code: str = Query(None, description="Código de autorização do provedor"),
-    state: str = Query(None, description="State criptográfico anti-CSRF"),
+    code: Optional[str] = Query(None, description="Código de autorização do provedor"),
+    state: Optional[str] = Query(None, description="State criptográfico anti-CSRF"),
+    error: Optional[str] = Query(None, description="Erro retornado pelo provedor OAuth"),
+    error_description: Optional[str] = Query(None, description="Descrição do erro retornado pelo provedor"),
     db: Session = Depends(get_db),
 ):
     provider = provider.lower()
@@ -62,6 +64,15 @@ async def oauth_callback(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provedor '{provider}' não é suportado.",
+        )
+
+    # Tratamento de erro reportado pelo provedor OAuth (ex: usuário cancelou na tela de consentimento)
+    if error:
+        record_oauth_login(provider, "provider_error")
+        err_msg = error_description or error or "Autenticação cancelada ou recusada pelo provedor."
+        return RedirectResponse(
+            url=f"{FRONTEND_URL}/#auth_error={quote(err_msg)}",
+            status_code=status.HTTP_302_FOUND,
         )
 
     # 1. Validação estrita de State (Proteção Anti-CSRF e Anti-Adulteração)
@@ -99,7 +110,7 @@ async def oauth_callback(
     # O hash fragment (#) não é transmitido ao servidor em requisições HTTP subsequentes,
     # prevenindo vazamento de tokens em access logs intermediários.
     redirect_target = f"{FRONTEND_URL}/#token={token}"
-    return RedirectResponse(url=redirect_target, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
+    return RedirectResponse(url=redirect_target, status_code=status.HTTP_302_FOUND)
 
 
 @router.get(

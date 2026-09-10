@@ -22,13 +22,13 @@ Este projeto é uma aplicação web fullstack com arquitetura moderna e containe
 | **Validação DB** | PostgreSQL CHECK Constraints | Restrições nativas de integridade de dados e validações regex executadas pela engine do banco. |
 | **Observabilidade** | Prometheus / prometheus-client | Métricas de vazão (Throughput), histograma de latência, conexões ativas, contadores de CRUD e eventos OAuth2 com OpenMetrics. |
 | **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva com microinterações. |
-| **Gestão de Auth UI**| React AuthContext | Gerenciamento reativo de sessão, interceptação de token hash (`#token=`) e persistência. |
+| **Gestão de Auth UI**| React AuthContext | Gerenciamento reativo de sessão, interceptação de token hash (`#token=`), captura resiliente de erros (`#auth_error=`) e persistência. |
 | **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
 | **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
 | **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, frontend e servidor Prometheus com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 11 arquivos de testes (68 testes) cobrindo formatters, componentes, botões OAuth, responsividade mobile/tablet, modais e integração de UI. |
-| **Testes Backend** | Python unittest | 54 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança (SQLi, XSS, CSRF, JWT). |
-| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 16 validações), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py`). |
+| **Testes Frontend**| Vitest + React Testing Library | 12 arquivos de testes (71 testes) cobrindo formatters, componentes, botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI. |
+| **Testes Backend** | Python unittest | 58 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança (SQLi, XSS, CSRF, JWT, Provider Errors). |
+| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 16 validações), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py` com 8 etapas). |
 
 
 
@@ -261,11 +261,11 @@ O projeto conta com **cobertura em 4 camadas**, com 100% de sucesso em todas:
 ### Resumo dos Resultados dos Testes
 
 1. **Testes Unitários do Backend (Python unittest):**
-   - **Total:** 54 testes executados, 54 aprovados (`docker compose exec app python -m unittest discover -s tests`).
-   - Cobertura: Algoritmo de CPF oficial, CEP, telefone, limites de idade, obrigatoriedade de campos, imunidade a SQL Injection, fluxos OAuth2, segurança contra CSRF/JWT e métricas de observabilidade Prometheus com probe de banco.
+   - **Total:** 58 testes executados, 58 aprovados (`docker compose exec app python -m unittest discover -s tests`).
+   - Cobertura: Algoritmo de CPF oficial, CEP, telefone, limites de idade, obrigatoriedade de campos, imunidade a SQL Injection, fluxos OAuth2, redirecionamento resiliente de erros, segurança contra CSRF/JWT e métricas de observabilidade Prometheus com probe de banco.
 
 2. **Testes do Frontend (Vitest + React Testing Library):**
-   - **Total:** 11 arquivos de teste, **68 testes executados, 68 aprovados**.
+   - **Total:** 12 arquivos de teste, **71 testes executados, 71 aprovados**.
    - Comando: `docker compose exec frontend npm test`
 
 3. **Testes de Integração da API (Python):**
@@ -273,8 +273,8 @@ O projeto conta com **cobertura em 4 camadas**, com 100% de sucesso em todas:
    - Comando: `python3 test_app.py`
 
 4. **Testes Ponta a Ponta (E2E):**
-   - Valida entrega do HTML no React, bundle do Vite, preflight CORS, jornada completa de usuário no PostgreSQL com novos campos e fluxos de segurança OAuth2.
-   - Comando: `python3 test_e2e.py` e `python3 test_e2e_auth.py`
+   - Valida entrega do HTML no React, bundle do Vite, preflight CORS, jornada completa de usuário no PostgreSQL com novos campos, fluxos de segurança OAuth2 e redirecionamento resiliente com fragmentos de erro.
+   - Comando: `python3 test_e2e.py` e `python3 test_e2e_auth.py` (8 etapas)
 
 
 ---

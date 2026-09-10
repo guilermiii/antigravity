@@ -7,6 +7,7 @@ from app.auth.security import (
     parse_oauth_name,
     sanitize_avatar_url,
 )
+from app.metrics import APP_USERS_TOTAL, record_user_operation
 from app.models import OAuthAccount, User
 
 
@@ -74,6 +75,8 @@ class AuthService:
                 )
                 db.add(user)
                 db.flush()  # Obtém o ID gerado
+                APP_USERS_TOTAL.inc()
+                record_user_operation("create", "oauth_success")
 
             # 5. Vincula a nova conta OAuth ao usuário
             new_oauth = OAuthAccount(

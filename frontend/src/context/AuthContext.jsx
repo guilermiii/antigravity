@@ -6,6 +6,8 @@ const AuthContext = createContext({
   token: null,
   isAuthenticated: false,
   isLoading: true,
+  authError: null,
+  clearAuthError: () => {},
   loginWithProvider: () => {},
   logout: async () => {},
   refreshUser: async () => {},
@@ -37,6 +39,11 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => safeGetToken());
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
+  }, []);
 
   const fetchProfile = useCallback(async () => {
     if (typeof api?.getMe !== 'function') {
@@ -56,26 +63,60 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    let urlToken = null;
+
     if (typeof window !== 'undefined') {
       const hash = window.location.hash;
-      let urlToken = null;
+      const search = window.location.search;
+      let detectedError = null;
 
-      if (hash && hash.includes('token=')) {
-        const params = new URLSearchParams(hash.replace(/^#/, ''));
-        urlToken = params.get('token');
-      } else if (window.location.search && window.location.search.includes('token=')) {
-        const params = new URLSearchParams(window.location.search);
-        urlToken = params.get('token');
+      // 1. Captura de erro retornado no hash (#auth_error= ou #error=)
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        if (hashParams.has('auth_error')) {
+          detectedError = hashParams.get('auth_error');
+        } else if (hashParams.has('error_description')) {
+          detectedError = hashParams.get('error_description');
+        } else if (hashParams.has('error')) {
+          detectedError = hashParams.get('error');
+        }
+
+        if (hashParams.has('token')) {
+          urlToken = hashParams.get('token');
+        }
       }
 
-      if (urlToken) {
+      // 2. Captura de erro retornado na query string (?auth_error= ou ?error=)
+      if (!detectedError && search) {
+        const searchParams = new URLSearchParams(search);
+        if (searchParams.has('auth_error')) {
+          detectedError = searchParams.get('auth_error');
+        } else if (searchParams.has('error_description')) {
+          detectedError = searchParams.get('error_description');
+        } else if (searchParams.has('error')) {
+          detectedError = searchParams.get('error');
+        }
+
+        if (!urlToken && searchParams.has('token')) {
+          urlToken = searchParams.get('token');
+        }
+      }
+
+      if (detectedError) {
+        try {
+          setAuthError(decodeURIComponent(detectedError));
+        } catch {
+          setAuthError(detectedError);
+        }
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (urlToken) {
         safeSetToken(urlToken);
         setToken(urlToken);
         window.history.replaceState(null, '', window.location.pathname);
       }
     }
 
-    const currentToken = safeGetToken();
+    const currentToken = urlToken || safeGetToken();
     if (currentToken) {
       fetchProfile();
     } else {
@@ -109,6 +150,8 @@ export function AuthProvider({ children }) {
     token,
     isAuthenticated: !!user,
     isLoading,
+    authError,
+    clearAuthError,
     loginWithProvider,
     logout,
     refreshUser: fetchProfile,

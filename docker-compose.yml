@@ -23,6 +23,8 @@ services:
     restart: always
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/users_db
     volumes:

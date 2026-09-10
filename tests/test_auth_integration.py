@@ -256,6 +256,27 @@ class TestAuthIntegration(unittest.TestCase):
         finally:
             db.close()
 
+    def test_callback_provider_error_github_redirects_to_frontend(self):
+        """Callback com erro do GitHub (ex: recusa de consentimento) redireciona ao frontend com #auth_error."""
+        response = self.client.get(
+            "/auth/github/callback?error=access_denied&error_description=User%20denied%20access",
+            follow_redirects=False,
+        )
+        self.assertIn(response.status_code, [302, 307])
+        location = response.headers.get("location", "")
+        self.assertIn("#auth_error=", location)
+        self.assertIn("User", location)
+
+    def test_callback_provider_error_google_redirects_to_frontend(self):
+        """Callback com erro do Google redireciona ao frontend com #auth_error."""
+        response = self.client.get(
+            "/auth/google/callback?error=access_denied",
+            follow_redirects=False,
+        )
+        self.assertIn(response.status_code, [302, 307])
+        location = response.headers.get("location", "")
+        self.assertIn("#auth_error=", location)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -103,6 +103,63 @@ class TestAuthUnit(unittest.TestCase):
         self.assertNotIn("<script>", clean)
         self.assertIn("João", clean)
 
+    def test_auth_package_exports(self):
+        """O pacote app.auth deve expor classes, provedores e rotas públicas em __all__."""
+        import app.auth as auth
+
+        expected_exports = [
+            "auth_router",
+            "auth_service",
+            "AuthService",
+            "github_provider",
+            "google_provider",
+            "GitHubOAuthProvider",
+            "GoogleOAuthProvider",
+            "create_access_token",
+            "decode_access_token",
+            "generate_oauth_state",
+            "verify_oauth_state",
+            "get_current_user",
+            "oauth2_scheme",
+            "parse_oauth_name",
+            "sanitize_avatar_url",
+            "sanitize_text",
+            "validate_redirect_url",
+            "JWT_SECRET_KEY",
+            "JWT_ALGORITHM",
+            "ACCESS_TOKEN_EXPIRE_MINUTES",
+            "FRONTEND_URL",
+            "GITHUB_CLIENT_ID",
+            "GITHUB_CLIENT_SECRET",
+            "GITHUB_REDIRECT_URI",
+            "GOOGLE_CLIENT_ID",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_REDIRECT_URI",
+        ]
+        for symbol in expected_exports:
+            self.assertTrue(
+                hasattr(auth, symbol),
+                f"Símbolo '{symbol}' não exportado pelo pacote app.auth",
+            )
+            self.assertIn(symbol, auth.__all__)
+
+    def test_authorization_urls_encoded_correctly(self):
+        """URLs de autorização devem codificar parâmetros de query de acordo com RFC 6749."""
+        from app.auth import github_provider, google_provider
+
+        gh_url = github_provider.get_authorization_url("state_test_gh")
+        self.assertIn("state=state_test_gh", gh_url)
+        self.assertNotIn(" ", gh_url, "URL do GitHub não deve conter espaços crus")
+
+        google_url = google_provider.get_authorization_url("state_test_google")
+        self.assertIn("state=state_test_google", google_url)
+        # O escopo 'openid email profile' deve ser codificado com + ou %20, nunca espaço cru
+        self.assertNotIn(" ", google_url, "URL do Google não deve conter espaços crus")
+        self.assertTrue(
+            "openid+email+profile" in google_url or "openid%20email%20profile" in google_url,
+            "Escopo do Google deve estar codificado em formato application/x-www-form-urlencoded",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

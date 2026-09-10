@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional
+from urllib.parse import urlencode
 import httpx
 
 from app.auth.config import (
@@ -26,8 +27,7 @@ class GitHubOAuthProvider:
             "scope": "read:user user:email",
             "state": state,
         }
-        query_string = "&".join(f"{k}={v}" for k, v in params.items())
-        return f"{self.AUTHORIZE_URL}?{query_string}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
 
     async def exchange_code(self, code: str) -> str:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -104,8 +104,7 @@ class GoogleOAuthProvider:
             "state": state,
             "prompt": "select_account",
         }
-        query_string = "&".join(f"{k}={v}" for k, v in params.items())
-        return f"{self.AUTHORIZE_URL}?{query_string}"
+        return f"{self.AUTHORIZE_URL}?{urlencode(params)}"
 
     async def exchange_code(self, code: str) -> str:
         async with httpx.AsyncClient(timeout=10.0) as client:

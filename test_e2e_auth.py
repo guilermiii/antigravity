@@ -99,6 +99,17 @@ def run_e2e_auth_verification():
     assert status == 200, f"Esperado 200 OK no logout, recebido {status}"
     print(f"  ✔ Logout concluído com sucesso!")
 
+    # 7. Redirecionamento resiliente de erro para o Frontend
+    print("\n[E2E-AUTH-8] Testando redirecionamento seguro com erro para o frontend...")
+    status, _, headers = http_request(
+        f"{API_BASE_URL}/auth/github/callback?error=access_denied&error_description=Consent%20Denied"
+    )
+    assert status in [302, 307], f"Esperado 302/307, recebido {status}"
+    location = headers.get("location") or headers.get("Location")
+    assert location, "Location ausente no redirecionamento de erro"
+    assert "#auth_error=" in location, "Fragmento #auth_error= ausente no redirecionamento"
+    print(f"  ✔ Redirecionamento resiliente de erro para frontend validado com sucesso!")
+
     print("\n" + "=" * 60)
     print("🎉 TODAS AS VALIDAÇÕES E2E DE AUTENTICAÇÃO E SEGURANÇA PASSARAM!")
     print("=" * 60)

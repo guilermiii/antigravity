@@ -7,10 +7,11 @@ import UserFormModal from './components/UserFormModal';
 import UserDetailModal from './components/UserDetailModal';
 import DeleteConfirmModal from './components/DeleteConfirmModal';
 import Toast from './components/Toast';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
   const [users, setUsers] = useState([]);
+  const { authError, clearAuthError } = useAuth() || {};
 
   const [isLoading, setIsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
@@ -42,6 +43,15 @@ function AppContent() {
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  useEffect(() => {
+    if (authError) {
+      addToast(authError, 'error');
+      if (typeof clearAuthError === 'function') {
+        clearAuthError();
+      }
+    }
+  }, [authError, clearAuthError]);
 
   // Carregar usuários
   const fetchUsers = async () => {
