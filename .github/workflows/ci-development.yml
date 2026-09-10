@@ -119,3 +119,41 @@ jobs:
           echo "- **Frontend Tests**: 69 testes de componentes, responsividade e auth aprovados (100%)" >> $GITHUB_STEP_SUMMARY
           echo "- **Build**: Verificação de bundle do Vite compilada sem erros" >> $GITHUB_STEP_SUMMARY
           echo "- **Status de Liberação**: Pronto para abertura de Pull Request e merge na branch \`main\`" >> $GITHUB_STEP_SUMMARY
+
+  auto-merge-to-main:
+    name: Auto-Merge Development to Main & Trigger Production CI
+    needs: [backend-dev, frontend-dev, approval-gate]
+    if: github.ref == 'refs/heads/development' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout Repository with Full History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git Identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge Development into Main and Push
+        run: |
+          echo "Iniciando merge automatizado da branch development na branch main..."
+          git fetch origin main
+          git checkout main
+          git pull origin main --rebase
+          git merge --no-ff development -m "chore(release): auto-merge validated development into main [skip ci]"
+          git push origin main
+          echo "✔ Merge concluído e enviado para origin/main com sucesso!"
+
+      - name: Trigger Main Production Pipeline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Disparando esteira de produção (ci-main.yml) na branch main..."
+          gh workflow run "CI - Main Production Pipeline" --ref main
+          echo "✔ Esteira de produção acionada com sucesso no GitHub Actions!"
