@@ -1,0 +1,188 @@
+name: CD - Production Deployment to OCI
+
+on:
+  workflow_run:
+    workflows: ["CI - Main Production Pipeline"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to OCI Primary Instance
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH Key & Known Hosts
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Test SSH Connectivity
+        env:
+          SSH_USER: ${{ secrets.SSH_USER || 'ubuntu' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" \
+            "echo '✔ SSH conectado com sucesso na OCI!' && uname -a && docker --version"
+
+      - name: Sync Project Files to Remote Host (/opt/antigravity)
+        env:
+          SSH_USER: ${{ secrets.SSH_USER || 'ubuntu' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p $SSH_PORT -o StrictHostKeyChecking=no" \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='certbot/conf' \
+            --exclude='certbot/www' \
+            --exclude='terraform' \
+            --exclude='.terraform*' \
+            --exclude='venv' \
+            --exclude='__pycache__' \
+            --exclude='frontend/node_modules' \
+            --exclude='frontend/dist' \
+            --exclude='.env' \
+            ./ "$SSH_USER@$SSH_HOST:/opt/antigravity/"
+
+      - name: Generate Production .env on Remote Host
+        env:
+          SSH_USER: ${{ secrets.SSH_USER || 'ubuntu' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+          ENV_ENVIRONMENT: ${{ secrets.ENVIRONMENT || 'production' }}
+          ENV_DEBUG: ${{ secrets.DEBUG || 'false' }}
+          ENV_APP_VERSION: ${{ secrets.APP_VERSION || '2.2.0' }}
+          ENV_POSTGRES_USER: ${{ secrets.POSTGRES_USER || 'postgres' }}
+          ENV_POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          ENV_POSTGRES_DB: ${{ secrets.POSTGRES_DB || 'users_db' }}
+          ENV_POSTGRES_HOST: ${{ secrets.POSTGRES_HOST || 'db' }}
+          ENV_POSTGRES_PORT: ${{ secrets.POSTGRES_PORT || '5432' }}
+          ENV_DATABASE_URL: ${{ secrets.DATABASE_URL || 'postgresql://postgres:postgrespassword@db:5432/users_db' }}
+          ENV_JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY }}
+          ENV_JWT_ALGORITHM: ${{ secrets.JWT_ALGORITHM || 'HS256' }}
+          ENV_ACCESS_TOKEN_EXPIRE_MINUTES: ${{ secrets.ACCESS_TOKEN_EXPIRE_MINUTES || '1440' }}
+          ENV_FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'https://guilermiii.duckdns.org' }}
+          ENV_VITE_API_URL: ${{ secrets.VITE_API_URL || 'https://guilermiii.duckdns.org' }}
+          ENV_GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          ENV_GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+          ENV_GITHUB_REDIRECT_URI: ${{ secrets.GITHUB_REDIRECT_URI || 'https://guilermiii.duckdns.org/auth/github/callback' }}
+          ENV_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          ENV_GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          ENV_GOOGLE_REDIRECT_URI: ${{ secrets.GOOGLE_REDIRECT_URI || 'https://guilermiii.duckdns.org/auth/google/callback' }}
+        run: |
+          {
+            echo "ENVIRONMENT=${ENV_ENVIRONMENT}"
+            echo "DEBUG=${ENV_DEBUG}"
+            echo "APP_VERSION=${ENV_APP_VERSION}"
+            echo "POSTGRES_USER=${ENV_POSTGRES_USER}"
+            echo "POSTGRES_PASSWORD=${ENV_POSTGRES_PASSWORD}"
+            echo "POSTGRES_DB=${ENV_POSTGRES_DB}"
+            echo "POSTGRES_HOST=${ENV_POSTGRES_HOST}"
+            echo "POSTGRES_PORT=${ENV_POSTGRES_PORT}"
+            echo "DATABASE_URL=${ENV_DATABASE_URL}"
+            echo "JWT_SECRET_KEY=${ENV_JWT_SECRET_KEY}"
+            echo "JWT_ALGORITHM=${ENV_JWT_ALGORITHM}"
+            echo "ACCESS_TOKEN_EXPIRE_MINUTES=${ENV_ACCESS_TOKEN_EXPIRE_MINUTES}"
+            echo "FRONTEND_URL=${ENV_FRONTEND_URL}"
+            echo "VITE_API_URL=${ENV_VITE_API_URL}"
+            echo "GITHUB_CLIENT_ID=${ENV_GITHUB_CLIENT_ID}"
+            echo "GITHUB_CLIENT_SECRET=${ENV_GITHUB_CLIENT_SECRET}"
+            echo "GITHUB_REDIRECT_URI=${ENV_GITHUB_REDIRECT_URI}"
+            echo "GOOGLE_CLIENT_ID=${ENV_GOOGLE_CLIENT_ID}"
+            echo "GOOGLE_CLIENT_SECRET=${ENV_GOOGLE_CLIENT_SECRET}"
+            echo "GOOGLE_REDIRECT_URI=${ENV_GOOGLE_REDIRECT_URI}"
+          } > .env.prod
+          chmod 600 .env.prod
+          scp -P "$SSH_PORT" -o StrictHostKeyChecking=no .env.prod "$SSH_USER@$SSH_HOST:/opt/antigravity/.env"
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "chmod 600 /opt/antigravity/.env"
+          rm -f .env.prod
+
+      - name: Build & Launch Docker Stack, Run Migrations & Reload Nginx
+        env:
+          SSH_USER: ${{ secrets.SSH_USER || 'ubuntu' }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '22' }}
+        run: |
+          ssh -p "$SSH_PORT" -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "bash -e" << 'EOF'
+            cd /opt/antigravity
+            
+            echo "=== 1. Subindo serviços com Docker Compose ==="
+            docker compose up -d --build app frontend nginx prometheus certbot
+            
+            echo "=== 2. Aguardando PostgreSQL ficar saudável ==="
+            for i in {1..30}; do
+              if docker compose exec -T db pg_isready -U postgres -d users_db > /dev/null 2>&1; then
+                echo "PostgreSQL saudável e operacional!"
+                break
+              fi
+              echo "Aguardando PostgreSQL ($i/30)..."
+              sleep 2
+            done
+            
+            echo "=== 3. Executando migrações do banco de dados (Alembic) ==="
+            docker compose exec -T app alembic upgrade head
+            
+            echo "=== 4. Recarregando proxy Nginx ==="
+            docker compose exec -T nginx nginx -s reload
+            
+            echo "=== 5. Status dos contêineres em execução ==="
+            docker compose ps
+          EOF
+
+      - name: Production Smoke Test (Live HTTPS Endpoints)
+        run: |
+          echo "=== Testando conectividade e saúde em produção ==="
+          for i in {1..15}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://guilermiii.duckdns.org/health || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Endpoint de saúde OK! (HTTP $STATUS)"
+              break
+            fi
+            echo "Aguardando aplicação responder HTTP 200 (tentativa $i/15, status atual: $STATUS)..."
+            sleep 4
+          done
+
+          echo "Payload de resposta /health:"
+          curl --fail --show-error -s https://guilermiii.duckdns.org/health
+          echo ""
+
+          echo "Headers do Frontend React HTTPS:"
+          curl --fail --show-error -s -I https://guilermiii.duckdns.org/ | head -n 5
+
+          echo "Verificação de redirecionamento HTTP -> HTTPS (porta 80 -> 443):"
+          REDIRECT_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://guilermiii.duckdns.org/ || true)
+          echo "Status HTTP 80: $REDIRECT_STATUS (esperado: 301)"
+
+      - name: Generate Deployment Step Summary
+        if: always()
+        run: |
+          echo "### 🚀 Antigravity Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Parâmetro | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Host OCI** | \`${{ secrets.SSH_HOST }}\` (ARM64 Ubuntu) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Domínio HTTPS** | [https://guilermiii.duckdns.org](https://guilermiii.duckdns.org) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Healthcheck** | [https://guilermiii.duckdns.org/health](https://guilermiii.duckdns.org/health) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Documentação Swagger** | [https://guilermiii.duckdns.org/docs](https://guilermiii.duckdns.org/docs) |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status da Execução** | ${{ job.status == 'success' && '✅ Sucesso' || '❌ Falha' }} |" >> $GITHUB_STEP_SUMMARY

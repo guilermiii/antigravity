@@ -25,8 +25,8 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
   - **Nginx (v1.27)**: Proxy Reverso unificado nas portas `80` e `443` com terminação SSL, roteamento transparente de SPA e API, e proteção por headers de segurança (HSTS).
   - **Certbot (Let's Encrypt)**: Automação de certificados SSL/TLS com desafio HTTP-01 e script de bootstrap contra falha de inicialização (`scripts/init-letsencrypt.sh`).
   - **DuckDNS**: Integração de subdomínio dinâmico (`guilermiii.duckdns.org`).
-  - **Terraform (OCI Always Free - Cluster de 4 Nós: 2 ARM A1.Flex + 2 AMD Micro)**: Módulo modular de IaC na Oracle Cloud alocando a cota máxima gratuita com IP público reservado via bloco `data`, discos de boot de 47 GB (188 GB / 200 GB Always Free) e State Locking via HTTP PAR.
-  - **GitHub Secrets Sync**: Script de sincronização automática de variáveis locais (`.env` e DuckDNS) para os Secrets do GitHub Actions (`scripts/sync-github-secrets.sh`).
+  - **Terraform (OCI Always Free - Cluster de 4 Nós: 2 ARM A1.Flex + 2 AMD Micro)**: Módulo modular de IaC na Oracle Cloud alocando a cota máxima gratuita com IP público reservado via bloco `data`, discos de boot de 50 GB (200 GB / 200 GB Always Free) e State Locking via HTTP PAR.
+  - **GitHub Actions CI/CD & Secrets Sync**: Esteiras automatizadas de integração e deploy contínuo (`ci-main.yml`, `ci-development.yml`, `cd-production.yml`) com sincronização de 26 segredos via script [`scripts/sync-github-secrets.sh`](file:///home/guilermiii/github/antigravity/scripts/sync-github-secrets.sh).
   - **Docker & Docker Compose**: Orquestração integrada de banco PostgreSQL, backend FastAPI, frontend React, coletor Prometheus, Nginx e Certbot.
   - **Prometheus Server (v2.51)**: Coletor de métricas nativo com scraping a cada 10s e painel de consulta PromQL.
   - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (85 testes).
@@ -317,40 +317,81 @@ python3 test_e2e_auth.py
 
 ---
 
-## 🔄 Estratégia de Branches & Esteiras de CI (GitHub Actions)
+## 🔄 Estratégia de Branches, CI & Continuous Deployment (CD)
 
-O repositório adota uma estratégia de ramificação com esteiras de integração contínua (CI) dedicadas e independentes:
+O repositório adota uma estratégia de ramificação com esteiras de integração contínua (CI) e entrega contínua (CD) dedicadas e automatizadas via **GitHub Actions**:
 
 ```mermaid
-flowchart LR
-    DevCommit[Desenvolvedor / PR] -->|Push / PR| BranchDev[Branch: development]
-    BranchDev -->|Gatilho| CIDev[CI Development Pipeline]
-    
-    subgraph CIDevJobs [Pipeline de Desenvolvimento]
-        T1[Backend Unit & Security Tests\n46 testes]
-        T2[API Integration Tests\ntest_app.py + Postgres]
-        T3[Frontend Vitest Suite\n69 testes]
-        T4[Frontend Production Build\nVite]
-        Gate[Gate de Aprovação para Main\nStatus: APROVADO]
-        T1 --> Gate
-        T2 --> Gate
-        T3 --> Gate
-        T4 --> Gate
+flowchart TD
+    subgraph LocalDev ["Ambiente de Desenvolvimento Local"]
+        Dev["Desenvolvedor"] -->|git push origin development| BranchDev["Branch: development"]
     end
-    
-    Gate -->|Aprovação & Promoção / PR| BranchMain[Branch: main]
-    BranchMain -->|Gatilho| CIMain[CI Main Production Pipeline]
-    
-    subgraph CIMainJobs [Pipeline de Produção]
-        P1[Testes Unitários e Segurança]
-        P2[Vitest & Build Frontend]
-        P3[Docker Compose Stack Completo]
-        P4[Live E2E CRUD Suite\ntest_e2e.py]
-        P5[Live E2E Auth & Security Suite\ntest_e2e_auth.py]
-        P1 --> P3
-        P2 --> P3
-        P3 --> P4
-        P3 --> P5
+
+    subgraph CIWorkflows ["GitHub Actions CI"]
+        BranchDev -->|Gatilho Push/PR| CIDev["CI - Development Pipeline\n(.github/workflows/ci-development.yml)"]
+        
+        subgraph CIDevJobs ["Validação de Homologação"]
+            T1["Backend Unit & Security (46 testes)"]
+            T2["API Integration (test_app.py + DB)"]
+            T3["Frontend Vitest Suite (69 testes)"]
+            T4["Frontend Production Bundle (Vite)"]
+            Gate["Gate de Aprovação de Merge"]
+            T1 --> Gate
+            T2 --> Gate
+            T3 --> Gate
+            T4 --> Gate
+        end
+        CIDev --- CIDevJobs
+        
+        Gate -->|Promoção / Pull Request| BranchMain["Branch: main"]
+        
+        BranchMain -->|Gatilho Push / PR / Dispatch| CIMain["CI - Main Production Pipeline\n(.github/workflows/ci-main.yml)"]
+        
+        subgraph CIMainJobs ["Validação Estrita de Produção"]
+            P1["Backend & Security Suite (63 testes)"]
+            P2["Frontend Bundle & Vitest (85 testes)"]
+            P3["Live Docker Compose Multi-Container"]
+            P4["Live E2E CRUD (test_e2e.py)"]
+            P5["Live E2E Auth (test_e2e_auth.py)"]
+            ReleaseGate["Production Release Readiness Gate"]
+            P1 --> P3
+            P2 --> P3
+            P3 --> P4
+            P3 --> P5
+            P4 --> ReleaseGate
+            P5 --> ReleaseGate
+        end
+        CIMain --- CIMainJobs
+    end
+
+    subgraph CDPipeline ["GitHub Actions CD"]
+        ReleaseGate -->|workflow_run: conclusion == success| CDDeploy["CD - Production Deployment\n(.github/workflows/cd-production.yml)"]
+        ManualTrigger["Disparo Manual (workflow_dispatch)"] -.-> CDDeploy
+        
+        subgraph GHSecrets ["GitHub Actions Secrets"]
+            SecApp["Credenciais da Aplicação (.env)\n(POSTGRES, JWT, OAUTH, CORS)"]
+            SecSSH["Credenciais de Conexão SSH\n(SSH_HOST, SSH_USER, SSH_PRIVATE_KEY)"]
+            SecDNS["Credenciais DuckDNS\n(DUCKDNS_DOMAIN, DUCKDNS_TOKEN)"]
+        end
+        GHSecrets -.->|Injeta Segredos| CDDeploy
+    end
+
+    subgraph OCIPrimary ["Nó Primário OCI (ARM A1.Flex: 137.131.206.187)"]
+        SSHConn["1. Conexão SSH Segura via RSA Key"]
+        Rsync["2. Sincronização Atômica via rsync\n(/opt/antigravity/)"]
+        GenEnv["3. Injeção do .env com chmod 600"]
+        DockerUp["4. docker compose up -d --build"]
+        Alembic["5. alembic upgrade head"]
+        NginxReload["6. nginx -s reload"]
+        SmokeTest["7. Smoke Test Live:\nhttps://guilermiii.duckdns.org/health"]
+
+        CDDeploy --> SSHConn
+        SSHConn --> Rsync
+        Rsync --> GenEnv
+        GenEnv --> DockerUp
+        DockerUp --> Alembic
+        Alembic --> NginxReload
+        NginxReload --> SmokeTest
     end
 ```
 
@@ -364,7 +405,58 @@ flowchart LR
 | **Endpoint Raiz (`/`)** | `"environment": "development"`, `"debug": true` | `"environment": "production"` |
 | **Interface Visual** | Badge de ambiente no topo da Navbar: `Ambiente: DEV` | Interface limpa e definitiva de produção sem marcadores de dev |
 | **Esteira de CI** | `.github/workflows/ci-development.yml` | `.github/workflows/ci-main.yml` |
+| **Esteira de CD** | N/A | `.github/workflows/cd-production.yml` (disparo automático) |
 | **Gating de Promoção** | Passing na CI de dev gera sumário de aprovação para merge na `main` | Execução completa com stack Docker Compose ao vivo e testes E2E |
+
+---
+
+## 🔐 Catálogo de Credenciais (GitHub Secrets)
+
+Para permitir a operação 100% autônoma das esteiras de CI/CD sem expor nenhuma informação sensível no Git, o projeto utiliza 26 segredos gerenciados no **GitHub Secrets**:
+
+| Categoria | Nome do Secret | Origem / Padrão | Finalidade |
+|---|---|---|---|
+| **Deploy SSH** | `SSH_HOST` | `137.131.206.187` | Endereço IP fixo reservado do nó primário OCI |
+| **Deploy SSH** | `SSH_USER` | `ubuntu` | Usuário de autenticação remota na máquina |
+| **Deploy SSH** | `SSH_PORT` | `22` | Porta do serviço OpenSSH |
+| **Deploy SSH** | `SSH_PRIVATE_KEY` | `~/.ssh/id_rsa` | Chave privada RSA autorizada na OCI |
+| **DuckDNS** | `DUCKDNS_DOMAIN` | `guilermiii` | Subdomínio público no DuckDNS |
+| **DuckDNS** | `DUCKDNS_TOKEN` | `terraform/duckdns.txt` | Token de atualização de IP dinâmico |
+| **Aplicação** | `ENVIRONMENT` | `.env` (`production`) | Modo de execução da aplicação |
+| **Aplicação** | `DEBUG` | `.env` (`false`) | Desativação de stacktraces na API |
+| **Aplicação** | `APP_VERSION` | `.env` (`2.2.0`) | Versão semântica da aplicação |
+| **Banco de Dados** | `POSTGRES_USER` | `.env` (`postgres`) | Usuário do banco de dados |
+| **Banco de Dados** | `POSTGRES_PASSWORD` | `.env` | Senha de autenticação do PostgreSQL |
+| **Banco de Dados** | `POSTGRES_DB` | `.env` (`users_db`) | Nome do banco relacional |
+| **Banco de Dados** | `POSTGRES_HOST` | `.env` (`db`) | Host interno do serviço Docker |
+| **Banco de Dados** | `POSTGRES_PORT` | `.env` (`5432`) | Porta interna do PostgreSQL |
+| **Banco de Dados** | `DATABASE_URL` | `.env` | URI de conexão SQLAlchemy |
+| **Segurança JWT** | `JWT_SECRET_KEY` | `.env` | Chave de 64 caracteres para assinatura HMAC-SHA256 |
+| **Segurança JWT** | `JWT_ALGORITHM` | `.env` (`HS256`) | Algoritmo de assinatura de sessão |
+| **Segurança JWT** | `ACCESS_TOKEN_EXPIRE_MINUTES` | `.env` (`1440`) | Duração da sessão autenticada (minutos) |
+| **Frontend & CORS** | `FRONTEND_URL` | `.env` (`https://guilermiii.duckdns.org`) | Origem confiável para CORS e redirects |
+| **Frontend & CORS** | `VITE_API_URL` | `.env` (`https://guilermiii.duckdns.org`) | Endereço da API consumido pelo SPA |
+| **OAuth 2.0** | `GITHUB_CLIENT_ID` | `.env` | Client ID registrado no GitHub OAuth App |
+| **OAuth 2.0** | `GITHUB_CLIENT_SECRET` | `.env` | Client Secret do GitHub OAuth App |
+| **OAuth 2.0** | `GITHUB_REDIRECT_URI` | `.env` (`.../auth/github/callback`) | Callback URI registrado no GitHub |
+| **OAuth 2.0** | `GOOGLE_CLIENT_ID` | `.env` | Client ID registrado no Google Cloud Console |
+| **OAuth 2.0** | `GOOGLE_CLIENT_SECRET` | `.env` | Client Secret do Google Cloud Console |
+| **OAuth 2.0** | `GOOGLE_REDIRECT_URI` | `.env` (`.../auth/google/callback`) | Callback URI registrado no Google Cloud |
+
+### 🚀 Sincronização Automatizada de Segredos
+
+O repositório inclui o script utilitário [`scripts/sync-github-secrets.sh`](file:///home/guilermiii/github/antigravity/scripts/sync-github-secrets.sh):
+
+```bash
+# 1. Auditar segredos locais sem enviar nada:
+./scripts/sync-github-secrets.sh --audit
+
+# 2. Autenticar no GitHub CLI:
+gh auth login
+
+# 3. Sincronizar todos os 26 segredos com o repositório:
+./scripts/sync-github-secrets.sh
+```
 
 ---
 
