@@ -21,34 +21,88 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
   - **Auth Context**: Gerenciamento de sessão JWT, captura de token por fragmento de URL (`#token=...`) e persistência segura.
   - **Lucide React**: Ícones minimalistas.
   - **Design Clean**: Tipografia Inter, botões OAuth2 de GitHub e Google, badges de perfil na Navbar e modal de detalhes.
-- **DevOps, Observabilidade & Testes**:
-  - **Docker & Docker Compose**: Orquestração integrada de banco PostgreSQL, backend FastAPI, frontend React e servidor Prometheus.
+- **DevOps, Nuvem & Infraestrutura**:
+  - **Nginx (v1.27)**: Proxy Reverso unificado nas portas `80` e `443` com terminação SSL, roteamento transparente de SPA e API, e proteção por headers de segurança (HSTS).
+  - **Certbot (Let's Encrypt)**: Automação de certificados SSL/TLS com desafio HTTP-01 e script de bootstrap contra falha de inicialização (`scripts/init-letsencrypt.sh`).
+  - **DuckDNS**: Integração de subdomínio dinâmico (`guilermiii.duckdns.org`).
+  - **Terraform (OCI Always Free - Cluster de 4 Nós: 2 ARM A1.Flex + 2 AMD Micro)**: Módulo modular de IaC na Oracle Cloud alocando a cota máxima gratuita com IP público reservado via bloco `data`, discos de boot de 47 GB (188 GB / 200 GB Always Free) e State Locking via HTTP PAR.
+  - **GitHub Secrets Sync**: Script de sincronização automática de variáveis locais (`.env` e DuckDNS) para os Secrets do GitHub Actions (`scripts/sync-github-secrets.sh`).
+  - **Docker & Docker Compose**: Orquestração integrada de banco PostgreSQL, backend FastAPI, frontend React, coletor Prometheus, Nginx e Certbot.
   - **Prometheus Server (v2.51)**: Coletor de métricas nativo com scraping a cada 10s e painel de consulta PromQL.
-  - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (68 testes).
-  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2, segurança e métricas Prometheus (54 testes).
-  - **Testes E2E Automatizados**: Dois scripts de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`) e integração de API (`test_app.py`).
-
+  - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (85 testes).
+  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2, segurança e métricas Prometheus (63 testes).
+  - **Testes E2E Automatizados**: Testes de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`) e integração de API (`test_app.py`).
 
 ---
 
-## 📋 Estrutura de Campos do Usuário
+## 🏛️ Diagrama de Arquitetura da Solução (Cluster 4 Nós Always Free)
 
-| Campo | Tipo | Obrigatoriedade | Validações (Backend e PostgreSQL) |
-|---|---|---|---|
-| `nome` | String (100) | **Obrigatório** | Mínimo 2 caracteres, não vazio, trim automático. |
-| `sobrenome` | String (100) | **Obrigatório** | Mínimo 2 caracteres, não vazio, trim automático. |
-| `email` | String (150) | **Obrigatório** | Formato de e-mail válido (`EmailStr`), índice `UNIQUE` no banco. |
-| `telefone` | String (20) | Opcional | Formato `(XX) XXXXX-XXXX` ou `(XX) XXXX-XXXX` (10 ou 11 dígitos com DDD). |
-| `idade` | Integer | Opcional | Entre 0 e 150 anos (`CHECK (idade >= 0 AND idade <= 150)`). |
-| `genero` | String (50) | Opcional | Masculino, Feminino, Não-binário, Outro, Prefiro não informar. |
-| `cpf` | String (14) | Opcional | Algoritmo oficial de dígitos verificadores (módulo 11), normalizado. |
-| `rua` | String (200) | Opcional | Logradouro / Rua. |
-| `numero` | String (20) | Opcional | Número residencial. |
-| `cidade` | String (100) | Opcional | Cidade de residência. |
-| `estado` | String (50) | Opcional | Estado / UF. |
-| `cep` | String (20) | Opcional | Padrão brasileiro `00000-000` (8 dígitos). |
-| `pais` | String (100) | Opcional | País de residência (padrão: "Brasil"). |
-| `escolaridade` | String (100) | Opcional | Grau de formação acadêmica. |
+```mermaid
+flowchart TD
+    subgraph Client ["Cliente / Navegador / Internet"]
+        User(["Usuário / Navegador"])
+        DuckDNS["DuckDNS DNS Resolver\n(guilermiii.duckdns.org)"]
+        LetsEncrypt["Let's Encrypt ACME CA"]
+    end
+
+    subgraph OCI ["Oracle Cloud Infrastructure (Always Free - 4 Instâncias / 188 GB Boot)"]
+        subgraph VCN ["VCN: 10.0.0.0/16 | Subnet Pública: 10.0.1.0/24"]
+            IGW["Internet Gateway + Default Route Table"]
+            SL["Security List / NSG\n(Ingress: 22, 80, 443, ICMP + VCN Interna | Egress: All)"]
+            
+            subgraph Node1 ["Nó 1: Primário (ARM A1.Flex - 1 OCPU / 6 GB / 47 GB)"]
+                ReservedIP["IP Público Reservado (Fixo)\n(Capturado via Bloco Data)"]
+                HostFirewall["Firewall iptables (Portas 22, 80, 443)"]
+                DuckDNSCron["Cron Job DuckDNS (A cada 5 min)"]
+
+                subgraph DockerEngine1 ["Docker Engine & Docker Compose"]
+                    NginxProxy["nginx_proxy (:80, :443)\nProxy Reverso & SSL Termination"]
+                    Certbot["certbot_service\n(ACME HTTP-01 Challenge)"]
+                    FastAPI["fastapi_app (:8000 interno)"]
+                    ReactApp["react_frontend (:3000 interno)"]
+                    Postgres["postgres_db (:5432 interno)"]
+                    Prometheus["prometheus_service (:9090 interno)"]
+                end
+            end
+
+            subgraph Node2 ["Nó 2: Worker ARM (ARM A1.Flex - 1 OCPU / 6 GB / 47 GB)"]
+                PublicIP2["IP Público Efêmero 2 (SSH :22)"]
+                Docker2["Docker Engine Pré-instalado"]
+            end
+
+            subgraph Node3 ["Nó 3: Micro AMD 1 (AMD E2.1.Micro - 1/8 OCPU / 1 GB / 47 GB)"]
+                PublicIP3["IP Público Efêmero 3 (SSH :22)"]
+                Docker3["Docker Engine Pré-instalado"]
+            end
+
+            subgraph Node4 ["Nó 4: Micro AMD 2 (AMD E2.1.Micro - 1/8 OCPU / 1 GB / 47 GB)"]
+                PublicIP4["IP Público Efêmero 4 (SSH :22)"]
+                Docker4["Docker Engine Pré-instalado"]
+            end
+        end
+
+        subgraph OCIStorage ["OCI Storage / Remote State"]
+            TFBucket[("Bucket OCI: terraform-states\nPAR HTTP Read/Write")]
+        end
+    end
+
+    User -->|1. Consulta DNS| DuckDNS
+    DuckDNS -->|Retorna IP Fixo Reservado| User
+    User -->|2. Requisição HTTPS (443) / HTTP (80)| ReservedIP
+    ReservedIP --> IGW
+    IGW --> SL
+    SL --> HostFirewall
+    HostFirewall --> NginxProxy
+
+    NginxProxy -->|location /| ReactApp
+    NginxProxy -->|location /users, /auth, /health, /docs| FastAPI
+    NginxProxy -->|location /.well-known/acme-challenge/| Certbot
+    LetsEncrypt -->|Validação ACME HTTP-01| NginxProxy
+    FastAPI --> Postgres
+    Prometheus -->|Scrape /metrics| FastAPI
+
+    TerraformCLI["Terraform CLI"] -.->|backend 'http' (PUT/GET)| TFBucket
+```
 
 ---
 
@@ -56,58 +110,56 @@ Aplicação web completa com operações de CRUD de usuários e **autenticação
 
 ```text
 .
-├── alembic/              # Migrações versionadas (Alembic)
-├── alembic.ini           # Configuração de conexão do Alembic
-├── app/                  # Backend FastAPI
-│   ├── __init__.py
-│   ├── database.py       # Engine e Session do SQLAlchemy
-│   ├── metrics.py        # Instrumentação Prometheus, middleware e endpoints /metrics e /health
-│   ├── models.py         # Modelo de Usuário e CheckConstraints
-│   ├── schemas.py        # Schemas Pydantic v2 com validações
-│   ├── validators.py     # Algoritmo de CPF, CEP e Telefone
-│   └── main.py           # Endpoints CRUD, middleware e Swagger
-├── frontend/             # Frontend React (Vite)
-│   ├── src/
-│   │   ├── components/   # Navbar, UserTable, UserFormModal, UserDetailModal, Toast
-│   │   ├── services/     # api.js (integração HTTP com o backend)
-│   │   ├── utils/        # formatters.js (máscaras e iniciais)
-│   │   ├── App.jsx       # Componente principal do CRUD
-│   │   └── index.css     # Estilos clean e responsivos
-│   └── package.json
-├── prometheus/           # Configuração do coletor Prometheus
-│   └── prometheus.yml    # Scrape job para o backend FastAPI (:8000/metrics)
-├── tests/                # Testes unitários do backend
-│   ├── test_metrics.py   # Testes dos endpoints Prometheus, anti-cardinalidade e health
-│   ├── test_unit.py      # Validadores, CPF e Anti-SQLi
-│   ├── test_auth_unit.py # Validadores unitários de Auth
-│   ├── test_auth_security.py # Ataques JWT e CSRF
-│   └── test_auth_integration.py # Fluxo OAuth com mocks
-├── docker-compose.yml    # Orquestração de Postgres, Backend, Frontend e Prometheus
-├── Dockerfile            # Containerização do backend FastAPI
-├── requirements.txt      # Dependências Python (incluindo prometheus-client)
-├── test_app.py           # Testes de integração da API
-├── test_e2e.py           # Testes ponta a ponta (E2E)
-├── CONTEXTO.md           # Documentação técnica detalhada
-└── README.md             # Este guia
+├── alembic/                  # Migrações versionadas de banco (Alembic)
+├── alembic.ini               # Configuração de conexão do Alembic
+├── app/                      # Backend FastAPI (Auth, Users, Metrics, Database)
+├── certbot/                  # Configurações e certificados SSL gerados pelo Certbot
+├── frontend/                 # Frontend React 18 + Vite (SPA com Auth Guard e Modais)
+├── nginx/                    # Configurações do Proxy Reverso Nginx
+│   ├── nginx.conf            # Configuração principal do Nginx
+│   └── conf.d/default.conf   # Virtual hosts HTTP (80) e HTTPS (443)
+├── prometheus/               # Coletor de métricas Prometheus
+├── scripts/
+│   └── init-letsencrypt.sh   # Script de bootstrap SSL Let's Encrypt para DuckDNS
+├── terraform/                # Manifestos modulares OCI Always Free ARM (IaC)
+│   ├── backend.tf            # Backend nativo OCI via HTTP PAR
+│   ├── providers.tf          # Provedor oracle/oci
+│   ├── variables.tf          # Variáveis parametrizadas
+│   ├── terraform.tfvars.example # Modelo de variáveis
+│   ├── datasources.tf        # Data block do IP público reservado e lookup de imagem
+│   ├── network.tf            # VCN, Internet Gateway, Security List e Subnet
+│   ├── compute.tf            # Instância Compute A1.Flex ARM com Ubuntu
+│   ├── public_ip.tf          # IP Público Reservado estático
+│   ├── outputs.tf            # Outputs com IP fixo, SSH e URLs
+│   ├── scripts/cloud-init.yaml # Script cloud-init para Ubuntu ARM
+│   └── README.md             # Guia completo de provisionamento OCI
+├── tests/                    # Testes unitários do backend (63 testes)
+├── docker-compose.yml        # Orquestração com Nginx, Certbot, Postgres, App, Frontend e Prometheus
+├── Dockerfile                # Containerização do backend FastAPI
+├── requirements.txt          # Dependências Python
+├── test_app.py               # Testes de integração de API
+├── test_e2e.py               # Teste E2E geral
+├── test_e2e_auth.py          # Testes E2E de segurança e autenticação OAuth2
+├── CONTEXTO.md               # Documentação técnica detalhada de arquitetura
+└── README.md                 # Este guia
 ```
 
 ---
 
-## 🚀 Como Executar com Docker Compose
+## 🚀 Como Executar Localmente com Nginx Proxy Reverso
 
-### 1. Iniciar os serviços
+### 1. Iniciar os serviços com Docker Compose
 
 ```bash
 docker compose up -d --build
 ```
 
-Os serviços serão iniciados e o Alembic aplicará as migrações automaticamente no PostgreSQL:
-- **Frontend React**: [http://localhost:3000](http://localhost:3000)
-- **API FastAPI (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Painel Prometheus**: [http://localhost:9090](http://localhost:9090)
-- **Endpoint de Métricas**: [http://localhost:8000/metrics](http://localhost:8000/metrics)
-- **Endpoint de Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
-- **PostgreSQL**: Porta `5432`
+Os serviços serão iniciados e o Nginx centralizará o acesso nas portas `80` (HTTP) e `443` (HTTPS):
+- **Aplicação Web (React Frontend)**: [http://localhost](http://localhost) ou [https://localhost](https://localhost)
+- **API FastAPI (Documentação Swagger)**: [http://localhost/docs](http://localhost/docs)
+- **Health Check da API & Banco**: [http://localhost/health](http://localhost/health)
+- **Métricas OpenMetrics (Prometheus)**: [http://localhost/metrics](http://localhost/metrics)
+- **Painel Prometheus**: [http://localhost:9090](http://localhost:9090) (interno/debug)
 
 ---
 
@@ -209,6 +261,22 @@ No painel do Prometheus ([http://localhost:9090](http://localhost:9090)):
 - **Percentil 95 de latência da API**: `histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, endpoint))`
 - **Taxa de erros (status 4xx / 5xx)**: `sum(rate(http_requests_total{status_code=~"[45].."}[1m]))`
 - **Total de usuários no sistema**: `app_users_total`
+
+---
+
+## 🔐 Sincronização de Credenciais no GitHub Secrets
+
+Para garantir que o repositório permaneça 100% seguro (com `.env`, `*.tfvars` e `*duckdns.txt` devidamente ignorados pelo `.gitignore`), criamos um script de sincronização automatizada que lê as variáveis de ambiente locais e cadastra diretamente nos **GitHub Actions Secrets**:
+
+```bash
+./scripts/sync-github-secrets.sh
+```
+
+### O que o script realiza:
+1. Valida a autenticação no **GitHub CLI (`gh`)**.
+2. Lê todas as credenciais do arquivo `.env` local (`POSTGRES_*`, `JWT_*`, `GITHUB_*`, `GOOGLE_*`, `FRONTEND_URL`, etc.).
+3. Lê os dados de domínio e token do DuckDNS.
+4. Cadastra/atualiza cada segredo no repositório GitHub via `gh secret set <NOME> --body <VALOR>` com status individual.
 
 ---
 

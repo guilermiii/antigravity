@@ -1,0 +1,79 @@
+#cloud-config
+# ==============================================================================
+# Cloud-Init: Provisionamento Automatizado da Instância Ubuntu ARM na OCI
+# ==============================================================================
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+  - iptables-persistent
+  - netfilter-persistent
+
+write_files:
+  # Script de atualização dinâmica de IP no DuckDNS
+  - path: /usr/local/bin/update-duckdns.sh
+    permissions: "0755"
+    owner: root:root
+    content: |
+      #!/bin/bash
+      DOMAIN="${duckdns_domain}"
+      TOKEN="${duckdns_token}"
+      if [ -n "$TOKEN" ] && [ -n "$DOMAIN" ]; then
+        RESPONSE=$(curl -s "https://www.duckdns.org/update?domains=$DOMAIN&token=$TOKEN&ip=")
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - DuckDNS update for $DOMAIN: $RESPONSE" >> /var/log/duckdns.log
+      fi
+
+  # Cron job para atualizar o IP a cada 5 minutos
+  - path: /etc/cron.d/duckdns
+    permissions: "0644"
+    owner: root:root
+    content: |
+      */5 * * * * root /usr/local/bin/update-duckdns.sh > /dev/null 2>&1
+
+runcmd:
+  - echo "=================================================="
+  - echo "🚀 INICIANDO CONFIGURAÇÃO CLOUD-INIT NA OCI"
+  - echo "=================================================="
+
+  # 1. Configuração do Firewall Nativo do Ubuntu na OCI (CRÍTICO)
+  # Imagens da Oracle possuem regras de rejeição nativas no iptables (/etc/iptables/rules.v4).
+  # Liberamos portas 80 (HTTP) e 443 (HTTPS) na chain INPUT antes da regra de DROP/REJECT.
+  - echo "Configurando regras de firewall iptables para portas 80 e 443..."
+  - iptables -I INPUT 1 -p tcp --dport 80 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT || iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 1 -p tcp --dport 443 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT || iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+  - netfilter-persistent save
+
+  # 2. Configuração de UFW caso esteja habilitado
+  - ufw allow 22/tcp || true
+  - ufw allow 80/tcp || true
+  - ufw allow 443/tcp || true
+
+  # 3. Instalação do Docker Engine e Docker Compose (Repositório Oficial ARM64)
+  - echo "Instalando Docker Engine e Docker Compose oficial..."
+  - install -m 0755 -d /etc/apt/keyrings
+  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  - chmod a+r /etc/apt/keyrings/docker.asc
+  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+  - apt-get update
+  - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+  # 4. Configuração de Permissões do Usuário ubuntu
+  - usermod -aG docker ubuntu
+  - systemctl enable --now docker
+
+  # 5. Execução inicial da atualização do DuckDNS
+  - /usr/local/bin/update-duckdns.sh || true
+
+  # 6. Criação do diretório da aplicação
+  - mkdir -p /opt/antigravity
+  - chown -R ubuntu:ubuntu /opt/antigravity
+
+  - echo "=================================================="
+  - echo "🎉 PROVISIONAMENTO CLOUD-INIT CONCLUÍDO COM SUCESSO!"
+  - echo "=================================================="

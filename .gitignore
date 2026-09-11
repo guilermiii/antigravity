@@ -44,3 +44,27 @@ blob-report/
 .agents/
 frontend/dist.old/
 
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# SSL & Certbot
+certbot/conf/
+certbot/www/
+
+# DuckDNS tokens & secrets
+*duckdns.txt
+duckdns.txt
+
+

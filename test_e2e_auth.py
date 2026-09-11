@@ -7,10 +7,11 @@ Executado contra a API FastAPI em execução (http://localhost:8000).
 import http.client
 import json
 import sys
+import os
 import urllib.parse
 import urllib.request
 
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 
 def http_request(url, method="GET", data=None, headers=None):

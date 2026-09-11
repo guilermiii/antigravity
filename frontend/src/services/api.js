@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE_URL = (import.meta.env.VITE_API_URL !== undefined && import.meta.env.VITE_API_URL !== null)
+  ? import.meta.env.VITE_API_URL
+  : 'http://localhost:8000';
 
 let authToken = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem('auth_token') : null;
 
@@ -80,9 +82,10 @@ export const api = {
 
   async checkHealth() {
     const headers = getHeaders(null);
+    const healthUrl = API_BASE_URL ? `${API_BASE_URL}/health` : '/health';
     const res = await (headers
-      ? fetch(`${API_BASE_URL}/`, { headers })
-      : fetch(`${API_BASE_URL}/`));
+      ? fetch(healthUrl, { headers })
+      : fetch(healthUrl));
     return await handleResponse(res);
   },
 

@@ -1,11 +1,12 @@
 """Validação Ponta a Ponta (E2E) dos serviços: Frontend (React:3000), Backend (FastAPI:8000) e Banco (PostgreSQL:5432)."""
 
 import json
+import os
 import urllib.error
 import urllib.request
 
-FRONTEND_URL = "http://localhost:3000"
-BACKEND_URL = "http://localhost:8000"
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
 
 def http_get(url: str, headers: dict = None):
