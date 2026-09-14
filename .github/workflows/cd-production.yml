@@ -60,8 +60,9 @@ jobs:
             --exclude='.terraform*' \
             --exclude='venv' \
             --exclude='__pycache__' \
-            --exclude='frontend/node_modules' \
-            --exclude='frontend/dist' \
+            --exclude='node_modules' \
+            --exclude='apps/*/node_modules' \
+            --exclude='apps/*/dist' \
             --exclude='.env' \
             ./ "$SSH_USER@$SSH_HOST:/opt/antigravity/"
 
@@ -128,7 +129,7 @@ jobs:
             cd /opt/antigravity
             
             echo "=== 1. Subindo serviços com Docker Compose ==="
-            docker compose up -d --build app frontend nginx prometheus certbot
+            docker compose up -d --build app frontend portfolio nginx prometheus certbot
             
             echo "=== 2. Aguardando PostgreSQL ficar saudável ==="
             for i in {1..30}; do

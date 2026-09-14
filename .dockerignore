@@ -9,4 +9,9 @@ venv/
 .git
 .gitignore
 .dockerignore
+node_modules
+**/node_modules
+dist
+**/dist
 README.md
+docs/

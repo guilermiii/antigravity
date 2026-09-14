@@ -1,161 +1,149 @@
-# 📋 Contexto Geral do Projeto: Sistema de Cadastro de Usuários & Autenticação OAuth2 (CRUD)
+# 📋 Contexto Geral do Projeto: Ecossistema Monorepo & Portfólio DevOps
 
-> **Documento de Contexto e Arquitetura**  
-> **Última atualização:** 09 de Setembro de 2026  
-> **Status:** Concluído, testado com 100% de aprovação (TDD), com autenticação OAuth2 (GitHub & Google), validações nativas no banco e em execução via Docker Compose.
+> **Documento de Contexto e Arquitetura Geral**  
+> **Localização:** `docs/contexto-geral.md`  
+> **Última atualização:** 14 de Setembro de 2026  
+> **Status:** Concluído, reorganizado em arquitetura **Monorepo** com 3 aplicações em `apps/` (`apps/portfolio`, `apps/crud-frontend`, `apps/backend`), infraestrutura Terraform OCI mantida na raiz, testes 100% aprovados com TDD (167 testes automatizados no total) e orquestração unificada via Docker Compose e Nginx.
 
 ---
 
 ## 1. 🎯 Visão Geral e Objetivo
 
-Este projeto é uma aplicação web fullstack com arquitetura moderna e containerizada para gerenciamento completo (**CRUD**) de cadastro de usuários e **autenticação federada OAuth 2.0 com suporte a GitHub e Google (Gmail)**. O sistema segue práticas estritas de modularidade, separação de responsabilidades, validação em duas camadas (Backend via Pydantic e Banco de Dados via PostgreSQL CHECK Constraints), migrações versionadas com Alembic, blindagem integral contra **SQL Injection**, **Script Injection (XSS)**, **CSRF / State Tampering** e **Ataques contra JWT (Alg: None)**, persistência relacional, design de interface limpo (*clean design*) e cobertura de testes seguindo **TDD (Test-Driven Development)**.
+O repositório **antigravity** é estruturado como um **Monorepo** profissional moderno que abriga todo o ciclo de vida de engenharia de software e plataforma:
+1. **Landing Page de Portfólio DevOps (`apps/portfolio/`)**: SPA limpa em React 18 e Vite com suporte nativo a Modo Escuro/Claro, telemetria da arquitetura em nuvem e apresentação das competências técnicas de Guilherme.
+2. **Sistema CRUD de Usuários & Auth OAuth2 (`apps/crud-frontend/`)**: Interface corporativa com bloqueio estrito (Auth Wall), autenticação federada com GitHub e Google, filtros em tempo real e formulários com máscaras.
+3. **API REST FastAPI & Migrações (`apps/backend/`)**: Serviço backend de alto rendimento em Python 3.11, ORM SQLAlchemy 2.0, migrações versionadas com Alembic, blindagem anti-SQLi/XSS/CSRF e JWT HS256.
+4. **Infraestrutura como Código (`terraform/` na raiz)**: Provisionamento de cluster com 4 instâncias Always-Free na Oracle Cloud Infrastructure (OCI), redes virtuais (VCN), subnets e integração com DuckDNS.
+5. **Proxy Reverso & Gateway (`nginx/`)**: Roteamento unificado da raiz (`/`) para a Landing Page e `/crud/` para o CRUD de Usuários, com terminação SSL/TLS (Let's Encrypt / Certbot).
+6. **Observabilidade (`prometheus/`)**: Monitoramento contínuo de latência, vazão e integridade de containers.
 
-### 🛠️ Stack Tecnológica
+### 🛠️ Stack Tecnológica Consolidada
 
 | Camada | Tecnologia | Descrição / Papel |
 |---|---|---|
-| **Backend** | Python 3.11 / FastAPI | Framework web de alta performance para criação de APIs REST assíncronas com OpenAPI 3.1. |
+| **Portfólio Frontend** | React 18 / Vite 5 | SPA moderna de portfólio DevOps em `apps/portfolio`, com Modo Claro/Escuro e 19 testes Vitest. |
+| **CRUD Frontend** | React 18 / Vite 5 | SPA de gerenciamento de usuários em `apps/crud-frontend`, com Auth Wall e 85 testes Vitest. |
+| **Backend API** | Python 3.11 / FastAPI | Framework REST assíncrono em `apps/backend`, com OpenAPI 3.1 e 63 testes unitários/segurança. |
 | **Autenticação** | OAuth 2.0 / PyJWT / httpx | Fluxo de autorização federado com GitHub e Google, emissão de JWT (HS256) e State anti-CSRF com HMAC-SHA256. |
-| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional com consultas 100% parametrizadas, tabela relacional `oauth_accounts` e volume persistente. |
+| **ORM / Banco** | SQLAlchemy 2.0 / PostgreSQL 16 | Mapeamento objeto-relacional com consultas 100% parametrizadas, tabela `oauth_accounts` e volume persistente. |
 | **Migrações** | Alembic 1.19 | Gerenciamento versionado e automatizado de DDL e restrições de integridade no banco. |
 | **Validação Backend**| Pydantic v2 / email-validator | Schemas com validação estrita de dados, algoritmo de CPF, formato de CEP e telefone. |
 | **Validação DB** | PostgreSQL CHECK Constraints | Restrições nativas de integridade de dados e validações regex executadas pela engine do banco. |
 | **Observabilidade** | Prometheus / prometheus-client | Métricas de vazão (Throughput), histograma de latência, conexões ativas, contadores de CRUD e eventos OAuth2 com OpenMetrics. |
-| **Frontend** | React 18 / Vite 5 | SPA (Single Page Application) moderna, rápida e responsiva com microinterações. |
-| **Gestão de Auth UI**| React AuthContext | Gerenciamento reativo de sessão, interceptação de token hash (`#token=`), captura resiliente de erros (`#auth_error=`) e persistência. |
-| **Estilização** | CSS puro com Design Tokens | Visual *clean*, tipografia *Inter*, modais estruturados em seções e design responsivo. |
-| **Ícones** | Lucide React | Conjunto de ícones leves e minimalistas. |
-| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, frontend e servidor Prometheus com reload instantâneo. |
-| **Testes Frontend**| Vitest + React Testing Library | 13 arquivos de testes (85 testes) cobrindo formatters, componentes, tela de login obrigatória (Auth Wall), botões OAuth, responsividade mobile/tablet, modais, AuthContext e integração de UI com bloqueio estrito. |
-| **Testes Backend** | Python unittest | 63 testes cobrindo schemas, CPF, CEP, idade, regras OAuth2, observabilidade Prometheus e testes de segurança/bloqueio de CRUD sem token (401 Unauthorized). |
-| **Testes E2E / API**| Scripts Python automatizados | Testes de integração de API (`test_app.py` com 18 validações cobrindo rejeição 401 e CRUD autenticado), E2E geral (`test_e2e.py`) e E2E de segurança/OAuth (`test_e2e_auth.py` com 8 etapas). |
-
-
+| **Reverse Proxy & TLS**| Nginx 1.27 / Certbot | Gateway unificado com HTTP/2, HSTS e renovação automática de certificados Let's Encrypt. |
+| **Infraestrutura (IaC)**| Terraform / OCI Provider | 4 instâncias computacionais Always-Free na Oracle Cloud, redes VCN e integração DuckDNS. |
+| **Containerização**| Docker & Docker Compose | Orquestração integrada de banco, backend, 2 frontends, prometheus, nginx e certbot. |
+| **Testes Automatizados**| Vitest + Python unittest | **167 testes automatizados aprovados (100%)**: 63 backend, 85 crud frontend e 19 portfolio landing page. |
 
 ---
 
-## 2. 🏛️ Arquitetura do Sistema
+## 2. 🏛️ Arquitetura do Sistema Monorepo
 
 ```mermaid
-flowchart LR
-    subgraph Host ["Máquina Host / Navegador"]
-        User(["Usuário"])
+flowchart TD
+    subgraph Host ["Máquina Host / Navegador / Internet"]
+        User(["Visitante / Usuário"])
+        DNS["DuckDNS (guilermiii.duckdns.org)"]
     end
 
-    subgraph Docker ["Rede Docker Compose (antigravity_default)"]
-        subgraph Frontend_Container ["react_frontend (:3000)"]
-            ReactApp["React 18 + Vite"]
-            ViteDev["Vite Dev Server"]
+    subgraph OCI ["Oracle Cloud Infrastructure (OCI Always-Free)"]
+        subgraph Gateway ["Nginx Reverse Proxy (:80 / :443 SSL)"]
+            Nginx["Nginx 1.27 + Certbot TLS 1.3"]
         end
 
-        subgraph Backend_Container ["fastapi_app (:8000)"]
-            FastAPI["FastAPI App + CORS"]
-            Alembic["Alembic Migrations"]
-            SQLAlchemy["SQLAlchemy 2.0 ORM"]
-        end
-
-        subgraph DB_Container ["postgres_db (:5432)"]
+        subgraph Docker ["Rede Docker Compose (antigravity_default)"]
+            PortfolioApp["Landing Page SPA (:3001)\n(apps/portfolio)"]
+            CRUDApp["CRUD Frontend SPA (:3000)\n(apps/crud-frontend)"]
+            FastAPI["FastAPI API (:8000)\n(apps/backend)"]
             PostgreSQL[(PostgreSQL 16\nDB: users_db)]
-            PGConstraints["CHECK Constraints\n& NOT NULL"]
-            PGData[("Volume Persistente:\npostgres_data")]
+            Prometheus["Prometheus (:9090)"]
         end
     end
 
-    User -->|Acessa UI :3000| ReactApp
-    User -->|Acessa Swagger :8000/docs| FastAPI
-    ReactApp -->|Requisições HTTP / JSON com CORS| FastAPI
-    FastAPI --> Alembic
-    Alembic -->|Upgrade Head no Lifespan| PostgreSQL
-    FastAPI --> SQLAlchemy
-    SQLAlchemy -->|Prepared Statements :5432| PostgreSQL
-    PostgreSQL --- PGConstraints
-    PostgreSQL --- PGData
+    User -->|Acessa DNS| DNS
+    DNS -->|Aponta IP OCI| Nginx
+    Nginx -->|Rota /| PortfolioApp
+    Nginx -->|Rota /crud/| CRUDApp
+    Nginx -->|Rotas /users, /auth, /health, /docs| FastAPI
+    FastAPI --> PostgreSQL
+    FastAPI --> Prometheus
 ```
 
 ---
 
-## 3. 📂 Estrutura Completa de Diretórios e Arquivos
+## 3. 📂 Estrutura Completa de Diretórios e Arquivos (Monorepo)
 
 ```text
 /home/guilermiii/github/antigravity/
-├── alembic/                          # Migrações versionadas de banco de dados
-│   ├── env.py                        # Integração do Alembic com SQLAlchemy e PostgreSQL
-│   ├── script.py.mako                # Template de criação de novas migrations
-│   └── versions/                     # Histórico de migrations
-│       └── 001_expand_users_and_add_constraints.py # Migration com novas colunas e CHECK constraints
-├── alembic.ini                       # Configuração global do Alembic
 │
-├── app/                              # Módulo do Backend (FastAPI)
-│   ├── __init__.py                   # Inicialização do pacote Python
-│   ├── database.py                   # Engine, SessionLocal e Base do SQLAlchemy
-│   ├── metrics.py                    # Telemetria Prometheus, middleware HTTP e endpoints /metrics e /health
-│   ├── models.py                     # Modelo User com novas colunas e CheckConstraints
-│   ├── schemas.py                    # Schemas Pydantic v2 (Create, Update, Response)
-│   ├── validators.py                 # Funções puras de validação (CPF módulo 11, CEP, Telefone)
-│   └── main.py                       # Rotas da API, middleware Prometheus e Swagger
+├── terraform/                            # [MANTIDO NA RAIZ] Infraestrutura como Código na OCI Always-Free
+│   ├── compute.tf                        # 4 instâncias computacionais (A1 Flex / E2 Micro)
+│   ├── network.tf                        # VCN, subnets públicas/privadas, Security Lists
+│   ├── datasources.tf                    # Imagens de SO e availability domains
+│   ├── providers.tf                      # Provedores OCI
+│   ├── variables.tf                      # Variáveis e parametrização de ambiente
+│   ├── outputs.tf                        # IPs públicos e URLs exportadas
+│   └── README.md                         # Guia detalhado da infraestrutura Terraform
 │
-├── frontend/                         # Aplicação Frontend (React + Vite)
-│   ├── e2e/
-│   │   └── users-crud.spec.js        # Testes E2E com Playwright
-│   ├── src/
-│   │   ├── components/               # Componentes reutilizáveis
-│   │   │   ├── AuthButtons.jsx             # Botões de Login OAuth2 compactos e grandes
-│   │   │   ├── AuthButtons.test.jsx        # Testes dos botões OAuth
-│   │   │   ├── DeleteConfirmModal.jsx      # Modal seguro de confirmação de exclusão
-│   │   │   ├── DeleteConfirmModal.test.jsx # Testes do modal de exclusão
-│   │   │   ├── LoginScreen.jsx             # Tela de Login dedicada (OAuth2 GitHub/Google, badges, perfil)
-│   │   │   ├── LoginScreen.test.jsx        # Testes unitários com mocks da LoginScreen
-│   │   │   ├── Navbar.jsx                  # Cabeçalho com status, ambiente DEV, login e perfil
-│   │   │   ├── Navbar.test.jsx             # Testes da Navbar
-│   │   │   ├── ResponsiveUI.test.jsx       # Testes de responsividade mobile/tablet
-│   │   │   ├── Toast.jsx                   # Notificações visuais flutuantes
-│   │   │   ├── Toast.test.jsx              # Testes do Toast
-│   │   │   ├── UserDetailModal.jsx         # Modal de exibição da ficha cadastral completa
-│   │   │   ├── UserDetailModal.test.jsx    # Testes do modal de detalhes
-│   │   │   ├── UserFormModal.jsx           # Formulário com grid, seções e máscaras
-│   │   │   ├── UserFormModal.test.jsx      # Testes do formulário (obrigatórios vs opcionais)
-│   │   │   ├── UserTable.jsx               # Tabela responsiva com iniciais, contato e ações
-│   │   │   └── UserTable.test.jsx          # Testes da tabela de usuários
-│   │   ├── services/
-│   │   │   ├── api.js                # Cliente de consumo HTTP dos endpoints REST
-│   │   │   └── api.test.js           # Testes unitários do cliente HTTP
-│   │   ├── utils/
-│   │   │   ├── formatters.js         # Formatadores (iniciais nome/sobrenome, CPF, Telefone, CEP, datas)
-│   │   │   └── formatters.test.js    # Testes unitários das formatações
-│   │   ├── App.jsx                   # Componente central com gerenciamento de estado e modais
-│   │   ├── App.integration.test.jsx  # Teste de integração do fluxo completo da UI
-│   │   ├── index.css                 # Folha de estilo clean/moderna global
-│   │   ├── main.jsx                  # Ponto de montagem React no DOM
-│   │   └── setupTests.js             # Configuração do jest-dom para o Vitest
-│   ├── Dockerfile                    # Imagem Node 20 para o frontend
-│   ├── index.html                    # HTML principal com fonte Inter
-│   ├── package.json                  # Dependências e scripts do frontend
-│   ├── playwright.config.js          # Configuração do Playwright
-│   └── vite.config.js                # Configuração do Vite e Vitest
+├── docs/                                 # [NOVO DIRETÓRIO] Documentações centralizadas
+│   ├── contexto-geral.md                 # Este documento de contexto global e arquitetura
+│   └── contexto-landing-page.md          # Contexto específico da Landing Page de Portfólio
 │
-├── prometheus/                       # Configuração do Prometheus Server
-│   └── prometheus.yml                # Job de scrape a cada 10s no backend FastAPI
+├── apps/                                 # [NOVO DIRETÓRIO] Aplicações do Monorepo
+│   ├── portfolio/                        # [NOVA SPA] Landing Page de Portfólio DevOps (React 18 + Vite)
+│   │   ├── src/
+│   │   │   ├── components/               # Navbar, Hero, Terminal, ArchitectureShowcase, Skills, Projects, etc.
+│   │   │   ├── context/                  # ThemeContext (Modo Escuro e Claro com persistência)
+│   │   │   ├── data/                     # Dados do portfólio desacoplados
+│   │   │   ├── App.jsx                   # Componente central da SPA
+│   │   │   ├── index.css                 # Design tokens globais e temas
+│   │   │   └── setupTests.js             # Polyfills de localStorage e matchMedia
+│   │   ├── Dockerfile                    # Container da Landing Page (:3001)
+│   │   ├── package.json                  # Dependências e scripts do portfólio
+│   │   └── vite.config.js                # Configuração do Vite e Vitest
+│   │
+│   ├── crud-frontend/                    # [MOVIDO] Aplicação Frontend de Gestão de Usuários (React 18 + Vite)
+│   │   ├── src/
+│   │   │   ├── components/               # AuthButtons, LoginScreen, Navbar, UserTable, Modais
+│   │   │   ├── context/                  # AuthContext (Gestão de sessão, token JWT e erros)
+│   │   │   ├── services/                 # api.js com cliente REST
+│   │   │   └── setupTests.js             # Polyfill de localStorage
+│   │   ├── Dockerfile                    # Container do CRUD (:3000)
+│   │   ├── package.json
+│   │   └── vite.config.js
+│   │
+│   └── backend/                          # [MOVIDO] API REST FastAPI & Migrações
+│       ├── app/                          # Código Python (main, models, schemas, auth, metrics, validators)
+│       ├── alembic/                      # Migrações versionadas de banco PostgreSQL
+│       ├── tests/                        # 63 testes unitários e de segurança
+│       ├── alembic.ini                   # Configurações do Alembic
+│       ├── Dockerfile                    # Imagem Python 3.11 (:8000)
+│       ├── requirements.txt              # Dependências Python
+│       ├── test_app.py                   # Testes de integração de API
+│       ├── test_e2e.py                   # Testes ponta a ponta E2E
+│       └── test_e2e_auth.py              # Testes ponta a ponta E2E de OAuth2
 │
-├── tests/                            # Suíte de Testes Unitários do Backend
-│   ├── __init__.py
-│   ├── test_metrics.py               # 8 testes de observabilidade, métricas e probes
-│   ├── test_unit.py                  # 17 testes unitários (Pydantic, CPF, CEP, idade, Anti-SQLi)
-│   ├── test_auth_unit.py             # 12 testes de validação unitária de auth
-│   ├── test_auth_security.py         # 10 testes de penetração JWT e CSRF
-│   └── test_auth_integration.py      # 7 testes de fluxo OAuth2 integrado com mocks
-│
-├── .dockerignore                     # Ignora arquivos desnecessários no build do app
-├── .env.example                      # Variáveis de ambiente de exemplo
-├── .gitignore                        # Regras de ignore do Git
-├── CONTEXTO.md                       # Este documento de contexto e arquitetura
-├── Dockerfile                        # Imagem Python 3.11 para a API FastAPI
-├── docker-compose.yml                # Orquestrador dos serviços db, app, frontend e prometheus
-├── README.md                         # Documentação principal e guia de uso
-├── requirements.txt                  # Dependências Python do backend (com prometheus-client)
-├── test_app.py                       # Testes de integração da API em Python (16 validações)
-├── test_e2e.py                       # Teste ponta a ponta (E2E) dos serviços
-└── test_e2e_auth.py                  # Teste ponta a ponta E2E dos fluxos OAuth2
-
+├── nginx/                                # Proxy Reverso e Gateway de Produção
+│   ├── nginx.conf                        # Configuração principal do Nginx
+│   └── conf.d/
+│       └── default.conf                  # Roteamento de / para portfolio, /crud/ para crud e API para backend
+├── prometheus/                           # Servidor de Métricas Prometheus
+│   └── prometheus.yml                    # Scrape contínuo a cada 10s
+├── certbot/                              # Armazenamento e renovação de certificados SSL Let's Encrypt
+├── scripts/                              # Scripts utilitários de DevOps
+│   ├── init-letsencrypt.sh               # Bootstrap inicial de certificados SSL
+│   └── sync-github-secrets.sh            # Sincronização automatizada de 26 segredos no GitHub Actions
+├── .github/                              # Workflows CI/CD integrados
+│   └── workflows/
+│       ├── ci-development.yml            # Testes e gates de branch development
+│       ├── ci-main.yml                   # Testes, build de produção e Docker Compose E2E na branch main
+│       └── cd-production.yml             # Deploy contínuo automatizado na instância OCI
+├── docker-compose.yml                    # Orquestrador Docker Compose unificado
+├── package.json                          # [NOVO NA RAIZ] NPM Workspaces para scripts globais
+├── README.md                             # [MANTIDO NA RAIZ] Documentação principal e instruções de execução
+├── .env.example                          # Variáveis de ambiente de exemplo
+├── .gitignore                            # Regras de exclusão do Git para Monorepo
+└── .dockerignore                         # Regras de exclusão de build Docker
 ```
 
 ---

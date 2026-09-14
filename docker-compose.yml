@@ -18,7 +18,7 @@ services:
       retries: 5
 
   app:
-    build: .
+    build: ./apps/backend
     container_name: fastapi_app
     restart: always
     ports:
@@ -30,14 +30,14 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/users_db
     volumes:
-      - .:/app
+      - ./apps/backend:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       db:
         condition: service_healthy
 
   frontend:
-    build: ./frontend
+    build: ./apps/crud-frontend
     container_name: react_frontend
     restart: always
     ports:
@@ -45,10 +45,24 @@ services:
     expose:
       - "3000"
     volumes:
-      - ./frontend:/app
+      - ./apps/crud-frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=
+    depends_on:
+      - app
+
+  portfolio:
+    build: ./apps/portfolio
+    container_name: portfolio_landing
+    restart: always
+    ports:
+      - "127.0.0.1:3001:3001"
+    expose:
+      - "3001"
+    volumes:
+      - ./apps/portfolio:/app
+      - /app/node_modules
     depends_on:
       - app
 
@@ -78,6 +92,7 @@ services:
     depends_on:
       - app
       - frontend
+      - portfolio
 
   certbot:
     image: certbot/certbot:latest
