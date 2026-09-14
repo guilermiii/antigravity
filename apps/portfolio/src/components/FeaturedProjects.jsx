@@ -44,18 +44,27 @@ export default function FeaturedProjects() {
             </div>
 
             <div className="project-links">
-              {project.links.map((link, idx) => (
-                <a
-                  key={idx}
-                  href={link.url}
-                  className={`btn ${link.isPrimary ? 'btn-primary' : 'btn-outline'} btn-sm`}
-                  target={link.url.startsWith('http') ? '_blank' : '_self'}
-                  rel={link.url.startsWith('http') ? 'noopener noreferrer' : undefined}
-                >
-                  <span>{link.label}</span>
-                  {link.isPrimary ? <ArrowRight size={14} /> : <ExternalLink size={14} />}
-                </a>
-              ))}
+              {project.links.map((link, idx) => {
+                let targetUrl = link.url;
+                if (link.url === '/crud' && typeof window !== 'undefined') {
+                  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                  if (isLocal && window.location.port === '3001') {
+                    targetUrl = 'http://localhost:3000';
+                  }
+                }
+                return (
+                  <a
+                    key={idx}
+                    href={targetUrl}
+                    className={`btn ${link.isPrimary ? 'btn-primary' : 'btn-outline'} btn-sm`}
+                    target={targetUrl.startsWith('http') ? '_blank' : '_self'}
+                    rel={targetUrl.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  >
+                    <span>{link.label}</span>
+                    {link.isPrimary ? <ArrowRight size={14} /> : <ExternalLink size={14} />}
+                  </a>
+                );
+              })}
             </div>
           </div>
         ))}

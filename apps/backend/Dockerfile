@@ -15,8 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia o código da aplicação
+# Copia o código da aplicação e migrações
 COPY app ./app
+COPY alembic ./alembic
+COPY alembic.ini .
 
 # Expõe a porta que a aplicação irá rodar
 EXPOSE 8000

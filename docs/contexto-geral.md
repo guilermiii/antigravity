@@ -333,3 +333,22 @@ docker compose down
    - **Jobs**:
      - `production-test-and-verify`: Executa testes unitários, de segurança e Vitest em paralelo.
      - `production-e2e-live`: Sobe a infraestrutura completa do Docker Compose (`fastapi_app`, `postgres_db`, `react_frontend`), aguarda a prontidão dos serviços via healthchecks e executa a validação ponta a ponta ao vivo (`test_e2e.py` e `test_e2e_auth.py`).
+
+---
+
+## 9. 🚀 Execução Local da Stack Monorepo
+
+Todos os serviços da arquitetura monorepo foram construídos e inicializados localmente via Docker Compose:
+
+1. **DevOps Portfolio Landing Page SPA**: `http://localhost:3001` (ou `http://localhost/` via Nginx)
+   - Alternância de tema Dark/Light com persistência local e zero-flicker
+   - Demonstração do terminal interativo com comandos de Terraform, Docker Compose e GitHub Actions
+   - Showcase da arquitetura na nuvem OCI e matriz de habilidades
+   - Redirecionamento dinâmico para a aplicação CRUD (`http://localhost:3000` em localhost)
+2. **CRUD Frontend SPA com Auth Wall & OAuth2**: `http://localhost:3000`
+   - Suíte de 85 testes Vitest cobrindo fluxos completos de CRUD, validações e autenticação
+3. **API REST FastAPI & Swagger UI**: `http://localhost:8000/docs` e `http://localhost:8000/health`
+   - Suíte de 63 testes unitários e de penetração (SQLi, XSS, CSRF, JWT) + testes E2E
+4. **Proxy Reverso Nginx**: `http://localhost:80` (rotas unificadas)
+5. **Servidor de Métricas Prometheus**: `http://localhost:9090`
+
