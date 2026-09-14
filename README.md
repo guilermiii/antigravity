@@ -1,51 +1,49 @@
-# Sistema de Cadastro de Usuários & Autenticação OAuth2 (FastAPI + PostgreSQL + React + Docker)
+# Ecossistema Monorepo: Portfólio DevOps & Aplicação Fullstack OAuth2
 
-Aplicação web completa com operações de CRUD de usuários e **autenticação federada OAuth 2.0 (GitHub e Google/Gmail)** com tokens JWT, persistência relacional em PostgreSQL com **validações nativas via CHECK Constraints**, migrações versionadas com **Alembic**, frontend limpo e responsivo em **React 18 + Vite**, arquitetura blindada contra **SQL Injection**, **Script Injection (XSS)**, **CSRF / State Tampering** e **Ataques JWT (Alg: None)**, desenvolvida sob metodologia **TDD**.
+Solução completa estruturada em **Monorepo** profissional, composta por uma **Landing Page SPA de Portfólio DevOps** (`apps/portfolio`), uma **Aplicação Corporativa de Gestão de Usuários com OAuth2** (`apps/crud-frontend`), uma **API REST FastAPI com Alembic e PostgreSQL 16** (`apps/backend`), e **Infraestrutura como Código mantida na raiz (`terraform/`)** provisionando um cluster de 4 instâncias Always-Free na Oracle Cloud Infrastructure (OCI).
+
+Toda a arquitetura é blindada contra **SQL Injection**, **Script Injection (XSS)**, **CSRF / State Tampering** e **Ataques contra JWT**, desenvolvida sob estrita metodologia **TDD** com **167 testes automatizados aprovados (100%)**.
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🛠️ Tecnologias Utilizadas no Monorepo
 
-- **Backend**:
-  - **Python 3.11**
-  - **FastAPI**: Framework web assíncrono de alta performance com OpenAPI 3.1 / Swagger integrada.
-  - **OAuth 2.0 & JWT (PyJWT)**: Autenticação federada com GitHub e Google, geração e validação de tokens JWT (HS256) e State anti-CSRF com HMAC-SHA256.
-  - **httpx**: Cliente HTTP assíncrono para comunicação backchannel segura com APIs de terceiros.
-  - **SQLAlchemy 2.0**: ORM moderno com consultas 100% parametrizadas (Prepared Statements anti-SQLi).
-  - **Alembic**: Sistema de migrações versionadas e idempotentes do banco de dados.
-  - **Pydantic v2**: Validação estrita de tipos, algoritmo de dígitos verificadores do CPF, CEP e telefone.
-  - **PostgreSQL 16**: Banco de dados relacional com restrições `CHECK`, `NOT NULL`, `UNIQUE` e tabela relacional `oauth_accounts`.
-  - **Prometheus Client & OpenMetrics**: Instrumentação completa de observabilidade, latência por histograma, contadores de throughput e métricas de negócio.
-- **Frontend**:
-  - **React 18 + Vite 5**: SPA moderna, limpa e responsiva.
-  - **Auth Context**: Gerenciamento de sessão JWT, captura de token por fragmento de URL (`#token=...`) e persistência segura.
-  - **Lucide React**: Ícones minimalistas.
-  - **Design Clean**: Tipografia Inter, botões OAuth2 de GitHub e Google, badges de perfil na Navbar e modal de detalhes.
+- **Landing Page de Portfólio DevOps (`apps/portfolio/`)**:
+  - **React 18 + Vite 5**: SPA rápida, acessível e responsiva.
+  - **Modo Escuro & Modo Claro**: Design tokens em CSS puro com alternância suave e persistência no `localStorage`.
+  - **Terminal DevOps & Showcase Cloud**: Componentes interativos demonstrando IaC, pipelines e topologia em tempo real.
+  - **Vitest & React Testing Library**: 19 testes unitários e de componentes aprovados.
+- **Aplicação CRUD & Autenticação OAuth2 (`apps/crud-frontend/`)**:
+  - **React 18 + Vite 5**: SPA de gestão de usuários com Auth Wall obrigatória.
+  - **OAuth 2.0 Federado**: Login com GitHub e Google, gestão de sessão JWT e interceptação de erros via hash fragment.
+  - **Vitest & React Testing Library**: 85 testes de componentes, responsividade e integração de UI aprovados.
+- **Backend API REST (`apps/backend/`)**:
+  - **Python 3.11 & FastAPI**: Framework assíncrono de alto rendimento com documentação OpenAPI 3.1 / Swagger.
+  - **SQLAlchemy 2.0 & PostgreSQL 16**: ORM moderno com Prepared Statements anti-SQLi e restrições nativas CHECK Constraints.
+  - **Alembic**: Migrações versionadas do banco de dados.
+  - **Prometheus Client & OpenMetrics**: Instrumentação completa de observabilidade e telemetria.
+  - **Python unittest**: 63 testes unitários de schemas, validadores, segurança e probes.
 - **DevOps, Nuvem & Infraestrutura**:
-  - **Nginx (v1.27)**: Proxy Reverso unificado nas portas `80` e `443` com terminação SSL, roteamento transparente de SPA e API, e proteção por headers de segurança (HSTS).
-  - **Certbot (Let's Encrypt)**: Automação de certificados SSL/TLS com desafio HTTP-01 e script de bootstrap contra falha de inicialização (`scripts/init-letsencrypt.sh`).
-  - **DuckDNS**: Integração de subdomínio dinâmico (`guilermiii.duckdns.org`).
-  - **Terraform (OCI Always Free - Cluster de 4 Nós: 2 ARM A1.Flex + 2 AMD Micro)**: Módulo modular de IaC na Oracle Cloud alocando a cota máxima gratuita com IP público reservado via bloco `data`, discos de boot de 50 GB (200 GB / 200 GB Always Free) e State Locking via HTTP PAR.
-  - **GitHub Actions CI/CD & Secrets Sync**: Esteiras automatizadas de integração e deploy contínuo (`ci-main.yml`, `ci-development.yml`, `cd-production.yml`) com sincronização de 26 segredos via script [`scripts/sync-github-secrets.sh`](file:///home/guilermiii/github/antigravity/scripts/sync-github-secrets.sh).
-  - **Docker & Docker Compose**: Orquestração integrada de banco PostgreSQL, backend FastAPI, frontend React, coletor Prometheus, Nginx e Certbot.
-  - **Prometheus Server (v2.51)**: Coletor de métricas nativo com scraping a cada 10s e painel de consulta PromQL.
-  - **Vitest & React Testing Library**: Testes unitários, de responsividade e de integração da interface (85 testes).
-  - **Python unittest**: Testes unitários de schemas, validadores, OAuth2, segurança e métricas Prometheus (63 testes).
-  - **Testes E2E Automatizados**: Testes de ponta a ponta (`test_e2e.py` e `test_e2e_auth.py`) e integração de API (`test_app.py`).
+  - **Nginx (v1.27)**: Proxy Reverso unificado nas portas `80` e `443` com terminação SSL, roteamento transparente da raiz (`/`) para o Portfólio e `/crud/` para o CRUD, e proteção por headers de segurança (HSTS).
+  - **Certbot (Let's Encrypt)**: Automação de certificados SSL/TLS com desafio HTTP-01 e renovação automática.
+  - **DuckDNS**: Integração de subdomínio dinâmico público (`guilermiii.duckdns.org`).
+  - **Terraform (OCI Always Free - Cluster de 4 Nós)**: Módulo modular de IaC na raiz (`terraform/`) alocando 4 instâncias computacionais, redes VCN e subnets.
+  - **GitHub Actions CI/CD**: Esteiras automatizadas de integração e deploy contínuo (`ci-main.yml`, `ci-development.yml`, `cd-production.yml`).
+  - **Docker & Docker Compose**: Orquestração integrada de PostgreSQL, FastAPI, Portfólio, CRUD, Prometheus, Nginx e Certbot.
 
 ---
 
-## 🏛️ Diagrama de Arquitetura da Solução (Cluster 4 Nós Always Free)
+## 🏛️ Diagrama de Arquitetura da Solução Monorepo
 
 ```mermaid
 flowchart TD
     subgraph Client ["Cliente / Navegador / Internet"]
-        User(["Usuário / Navegador"])
+        User(["Visitante / Usuário"])
         DuckDNS["DuckDNS DNS Resolver\n(guilermiii.duckdns.org)"]
         LetsEncrypt["Let's Encrypt ACME CA"]
     end
 
-    subgraph OCI ["Oracle Cloud Infrastructure (Always Free - 4 Instâncias / 188 GB Boot)"]
+    subgraph OCI ["Oracle Cloud Infrastructure (Always Free - 4 Instâncias OCI)"]
         subgraph VCN ["VCN: 10.0.0.0/16 | Subnet Pública: 10.0.1.0/24"]
             IGW["Internet Gateway + Default Route Table"]
             SL["Security List / NSG\n(Ingress: 22, 80, 443, ICMP + VCN Interna | Egress: All)"]
@@ -58,26 +56,16 @@ flowchart TD
                 subgraph DockerEngine1 ["Docker Engine & Docker Compose"]
                     NginxProxy["nginx_proxy (:80, :443)\nProxy Reverso & SSL Termination"]
                     Certbot["certbot_service\n(ACME HTTP-01 Challenge)"]
-                    FastAPI["fastapi_app (:8000 interno)"]
-                    ReactApp["react_frontend (:3000 interno)"]
-                    Postgres["postgres_db (:5432 interno)"]
+                    PortfolioApp["portfolio_landing (:3001 interno)\nLanding Page SPA"]
+                    ReactApp["react_frontend (:3000 interno)\nCRUD Frontend SPA"]
+                    FastAPI["fastapi_app (:8000 interno)\nFastAPI REST API"]
+                    Postgres["postgres_db (:5432 interno)\nPostgreSQL 16"]
                     Prometheus["prometheus_service (:9090 interno)"]
                 end
             end
 
-            subgraph Node2 ["Nó 2: Worker ARM (ARM A1.Flex - 1 OCPU / 6 GB / 47 GB)"]
-                PublicIP2["IP Público Efêmero 2 (SSH :22)"]
-                Docker2["Docker Engine Pré-instalado"]
-            end
-
-            subgraph Node3 ["Nó 3: Micro AMD 1 (AMD E2.1.Micro - 1/8 OCPU / 1 GB / 47 GB)"]
-                PublicIP3["IP Público Efêmero 3 (SSH :22)"]
-                Docker3["Docker Engine Pré-instalado"]
-            end
-
-            subgraph Node4 ["Nó 4: Micro AMD 2 (AMD E2.1.Micro - 1/8 OCPU / 1 GB / 47 GB)"]
-                PublicIP4["IP Público Efêmero 4 (SSH :22)"]
-                Docker4["Docker Engine Pré-instalado"]
+            subgraph Node2 ["Nós 2, 3 e 4: Workers Always-Free"]
+                Workers["3x Instâncias de Computação OCI para escalabilidade"]
             end
         end
 
@@ -94,55 +82,44 @@ flowchart TD
     SL --> HostFirewall
     HostFirewall --> NginxProxy
 
-    NginxProxy -->|location /| ReactApp
+    NginxProxy -->|location /| PortfolioApp
+    NginxProxy -->|location /crud/| ReactApp
     NginxProxy -->|location /users, /auth, /health, /docs| FastAPI
     NginxProxy -->|location /.well-known/acme-challenge/| Certbot
     LetsEncrypt -->|Validação ACME HTTP-01| NginxProxy
     FastAPI --> Postgres
     Prometheus -->|Scrape /metrics| FastAPI
 
-    TerraformCLI["Terraform CLI"] -.->|backend 'http' (PUT/GET)| TFBucket
+    TerraformCLI["Terraform CLI (raiz /terraform)"] -.->|backend 'http'| TFBucket
 ```
 
 ---
 
-## 📁 Estrutura do Projeto
+## 📁 Estrutura do Monorepo
 
 ```text
 .
-├── alembic/                  # Migrações versionadas de banco (Alembic)
-├── alembic.ini               # Configuração de conexão do Alembic
-├── app/                      # Backend FastAPI (Auth, Users, Metrics, Database)
-├── certbot/                  # Configurações e certificados SSL gerados pelo Certbot
-├── frontend/                 # Frontend React 18 + Vite (SPA com Auth Guard e Modais)
-├── nginx/                    # Configurações do Proxy Reverso Nginx
-│   ├── nginx.conf            # Configuração principal do Nginx
-│   └── conf.d/default.conf   # Virtual hosts HTTP (80) e HTTPS (443)
-├── prometheus/               # Coletor de métricas Prometheus
-├── scripts/
-│   └── init-letsencrypt.sh   # Script de bootstrap SSL Let's Encrypt para DuckDNS
-├── terraform/                # Manifestos modulares OCI Always Free ARM (IaC)
-│   ├── backend.tf            # Backend nativo OCI via HTTP PAR
-│   ├── providers.tf          # Provedor oracle/oci
-│   ├── variables.tf          # Variáveis parametrizadas
-│   ├── terraform.tfvars.example # Modelo de variáveis
-│   ├── datasources.tf        # Data block do IP público reservado e lookup de imagem
-│   ├── network.tf            # VCN, Internet Gateway, Security List e Subnet
-│   ├── compute.tf            # Instância Compute A1.Flex ARM com Ubuntu
-│   ├── public_ip.tf          # IP Público Reservado estático
-│   ├── outputs.tf            # Outputs com IP fixo, SSH e URLs
-│   ├── scripts/cloud-init.yaml # Script cloud-init para Ubuntu ARM
-│   └── README.md             # Guia completo de provisionamento OCI
-├── tests/                    # Testes unitários do backend (63 testes)
-├── docker-compose.yml        # Orquestração com Nginx, Certbot, Postgres, App, Frontend e Prometheus
-├── Dockerfile                # Containerização do backend FastAPI
-├── requirements.txt          # Dependências Python
-├── test_app.py               # Testes de integração de API
-├── test_e2e.py               # Teste E2E geral
-├── test_e2e_auth.py          # Testes E2E de segurança e autenticação OAuth2
-├── CONTEXTO.md               # Documentação técnica detalhada de arquitetura
-└── README.md                 # Este guia
+├── terraform/                # [NA RAIZ] Infraestrutura como Código na OCI Always Free
+├── docs/                     # [CENTRALIZADO] Documentações de arquitetura
+│   ├── contexto-geral.md     # Contexto completo da arquitetura monorepo
+│   └── contexto-landing-page.md # Contexto e especificações da Landing Page
+├── apps/                     # [APLICAÇÕES DO MONOREPO]
+│   ├── portfolio/            # Landing Page SPA DevOps (React 18 + Vite, Dark/Light, Vitest)
+│   ├── crud-frontend/        # Aplicação CRUD de Usuários & Auth Wall (React 18 + Vite, Vitest)
+│   └── backend/              # API FastAPI, SQLAlchemy, Alembic, Testes unitários/segurança
+├── nginx/                    # Reverse Proxy Nginx e Virtual Hosts
+├── prometheus/               # Servidor de Métricas Prometheus
+├── certbot/                  # Certificados e renovação SSL Let's Encrypt
+├── scripts/                  # Scripts DevOps (sync de segredos e init letsencrypt)
+├── .github/                  # Pipelines de CI/CD (development, main, production)
+├── docker-compose.yml        # Orquestrador de todos os containers
+├── package.json              # NPM Workspaces para scripts a partir da raiz
+├── README.md                 # Guia geral de uso e documentação
+├── .env.example
+├── .gitignore
+└── .dockerignore
 ```
+
 
 ---
 
@@ -155,11 +132,29 @@ docker compose up -d --build
 ```
 
 Os serviços serão iniciados e o Nginx centralizará o acesso nas portas `80` (HTTP) e `443` (HTTPS):
-- **Aplicação Web (React Frontend)**: [http://localhost](http://localhost) ou [https://localhost](https://localhost)
+- **Landing Page SPA (Portfólio DevOps)**: [http://localhost](http://localhost) (ou direto em [http://localhost:3001](http://localhost:3001))
+- **Aplicação Web (CRUD Usuários & OAuth2)**: [http://localhost/crud](http://localhost/crud) (ou direto em [http://localhost:3000](http://localhost:3000))
 - **API FastAPI (Documentação Swagger)**: [http://localhost/docs](http://localhost/docs)
 - **Health Check da API & Banco**: [http://localhost/health](http://localhost/health)
 - **Métricas OpenMetrics (Prometheus)**: [http://localhost/metrics](http://localhost/metrics)
 - **Painel Prometheus**: [http://localhost:9090](http://localhost:9090) (interno/debug)
+
+### Comandos Úteis via NPM Workspaces (Raiz do Monorepo):
+```bash
+# Iniciar a Landing Page de Portfólio (porta 3001):
+npm run dev:portfolio
+
+# Iniciar a Aplicação de Gestão de Usuários (porta 3000):
+npm run dev:crud
+
+# Executar os testes automatizados dos frontends:
+npm run test:portfolio   # 19 testes da Landing Page
+npm run test:crud        # 85 testes do CRUD Frontend
+npm test                 # Executa ambos os frontends
+
+# Executar testes do backend FastAPI:
+cd apps/backend && ../../.venv/bin/python3 -m unittest discover -s tests # 63 testes
+```
 
 ---
 
