@@ -352,3 +352,13 @@ Todos os serviços da arquitetura monorepo foram construídos e inicializados lo
 4. **Proxy Reverso Nginx**: `http://localhost:80` (rotas unificadas)
 5. **Servidor de Métricas Prometheus**: `http://localhost:9090`
 
+---
+
+## 10. 🛡️ Resolução de Incidentes de CI/CD (GitHub Actions)
+
+- **Causa 1 (Lockfile do Portfolio)**: A ausência de `apps/portfolio/package-lock.json` causava falha no `setup-node` e `npm ci`. Foi gerado e versionado o lockfile individual da landing page.
+- **Causa 2 (Variáveis e Certificados no Runner)**: Na esteira de `main`, a ausência de `.env` e certificados SSL mockados impedia o `docker compose up` de levantar o Nginx. Foi adicionada etapa de criação do `.env` e certificados temporários, além de `required: false` no Compose.
+- **Causa 3 (Autenticação nos Testes E2E ao Vivo)**: Com a blindagem OAuth2 dos endpoints `/users/`, o script `test_e2e.py` recebia HTTP 401. Foi criado o endpoint seguro `/auth/test-token` (disponível exclusivamente em `ENVIRONMENT=development` ou `test`) e o script foi atualizado para trafegar o header `Authorization: Bearer <token>`.
+- **Status Final**: Pipelines `ci-development.yml` e `ci-main.yml` 100% aprovadas (verde) no GitHub Actions.
+
+
