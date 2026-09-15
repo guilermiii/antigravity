@@ -27,8 +27,12 @@ wheels/
 
 # Frontend & Node dependencies
 node_modules/
-frontend/node_modules/
+**/node_modules/
 dist/
+**/dist/
+apps/*/node_modules/
+apps/*/dist/
+frontend/node_modules/
 frontend/dist/
 
 # Test & Coverage artifacts
@@ -42,5 +46,29 @@ blob-report/
 .DS_Store
 .obsidian/
 .agents/
-frontend/dist.old/
+**/dist.old/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# SSL & Certbot
+certbot/conf/
+certbot/www/
+
+# DuckDNS tokens & secrets
+*duckdns.txt
+duckdns.txt
+
 

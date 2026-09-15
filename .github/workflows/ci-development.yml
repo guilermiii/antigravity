@@ -46,19 +46,23 @@ jobs:
           cache: 'pip'
 
       - name: Install Python Dependencies
+        working-directory: ./apps/backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run Alembic Database Migrations
+        working-directory: ./apps/backend
         run: |
           alembic upgrade head
 
       - name: Run Unit, Security (SQLi/XSS/CSRF/JWT) Tests
+        working-directory: ./apps/backend
         run: |
           python -m unittest discover -s tests
 
       - name: Start API Server & Run Integration Tests
+        working-directory: ./apps/backend
         run: |
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           UVICORN_PID=$!
@@ -74,7 +78,7 @@ jobs:
           kill $UVICORN_PID || true
 
   frontend-dev:
-    name: Frontend Vitest & Build Verification
+    name: CRUD Frontend Vitest & Build Verification
     runs-on: ubuntu-latest
 
     steps:
@@ -86,43 +90,71 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: apps/crud-frontend/package-lock.json
 
       - name: Install Frontend Dependencies
-        working-directory: ./frontend
+        working-directory: ./apps/crud-frontend
         run: npm ci
 
-      - name: Run Frontend Vitest Test Suite (68 Tests)
-        working-directory: ./frontend
+      - name: Run Frontend Vitest Test Suite (85 Tests)
+        working-directory: ./apps/crud-frontend
         run: npm test -- --run
 
       - name: Verify Frontend Production Build
-        working-directory: ./frontend
+        working-directory: ./apps/crud-frontend
+        run: npm run build
+
+  portfolio-dev:
+    name: Portfolio Landing Page Vitest & Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/portfolio/package-lock.json
+
+      - name: Install Portfolio Dependencies
+        working-directory: ./apps/portfolio
+        run: npm ci
+
+      - name: Run Portfolio Vitest Test Suite (19 Tests)
+        working-directory: ./apps/portfolio
+        run: npm test -- --run
+
+      - name: Verify Portfolio Production Build
+        working-directory: ./apps/portfolio
         run: npm run build
 
   approval-gate:
     name: Development Quality Gate & Main Promotion Approval
-    needs: [backend-dev, frontend-dev]
+    needs: [backend-dev, frontend-dev, portfolio-dev]
     runs-on: ubuntu-latest
     steps:
       - name: Validate Pipeline Completion
         run: |
           echo "========================================================"
-          echo "✔ Todos os testes de backend, segurança e frontend passaram!"
+          echo "✔ Todos os testes de backend, segurança, crud e portfolio passaram!"
           echo "✔ Branch development validada e aprovada com sucesso!"
           echo "✔ Status: APROVADO PARA PROMOÇÃO / MERGE NA BRANCH MAIN."
           echo "========================================================"
       - name: Generate Summary
         run: |
           echo "### 🚀 Development Pipeline: APROVADO" >> $GITHUB_STEP_SUMMARY
-          echo "- **Backend Tests**: 54 testes unitários e de segurança aprovados (100%)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Frontend Tests**: 69 testes de componentes, responsividade e auth aprovados (100%)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build**: Verificação de bundle do Vite compilada sem erros" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status de Liberação**: Pronto para abertura de Pull Request e merge na branch \`main\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend Tests**: 63 testes unitários e de segurança aprovados (100%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **CRUD Frontend Tests**: 85 testes de componentes e auth aprovados (100%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Portfolio Tests**: 19 testes de Landing Page, tema e componentes aprovados (100%)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Builds**: Bundles compilados sem erros" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status de Liberação**: Pronto para merge na branch \`main\`" >> $GITHUB_STEP_SUMMARY
 
   auto-merge-to-main:
     name: Auto-Merge Development to Main & Trigger Production CI
-    needs: [backend-dev, frontend-dev, approval-gate]
+    needs: [backend-dev, frontend-dev, portfolio-dev, approval-gate]
     if: github.ref == 'refs/heads/development' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

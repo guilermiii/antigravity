@@ -1,0 +1,51 @@
+# ==============================================================================
+# MODELO DE VARIÁVEIS DO TERRAFORM PARA ORACLE CLOUD (OCI)
+# ==============================================================================
+# Copie este arquivo para "terraform.tfvars" e preencha com suas credenciais:
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# NUNCA comite o arquivo "terraform.tfvars" com credenciais reais!
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Credenciais de API da OCI (Obtidas no Console OCI -> Perfil do Usuário -> API Keys)
+# ------------------------------------------------------------------------------
+tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+fingerprint      = "xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx:xx"
+private_key_path = "~/.oci/oci_api_key.pem"
+region           = "sa-saopaulo-1"
+
+# OCID do Compartimento (Compartment) onde a infraestrutura será criada
+compartment_ocid = "ocid1.compartment.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# ------------------------------------------------------------------------------
+# 2. Configurações das Máquinas Always Free (Cluster de 4 Nós: 2 ARM + 2 AMD)
+# ------------------------------------------------------------------------------
+project_name                   = "antigravity"
+environment                    = "production"
+arm_instance_count             = 2      # 2 nós ARM A1.Flex (1 OCPU e 6 GB RAM cada)
+arm_ocpus_per_instance         = 1
+arm_memory_in_gbs_per_instance = 6
+amd_instance_count             = 2      # 2 nós AMD E2.1.Micro (1/8 OCPU e 1 GB RAM cada)
+boot_volume_size_in_gbs        = 50     # 50 GB por máquina (4 x 50 = 200 GB = 100% Always Free)
+ubuntu_version                 = "24.04"
+availability_domain_number     = 1
+
+# ------------------------------------------------------------------------------
+# 3. Chave SSH RSA Existente (Não gera novas chaves)
+# ------------------------------------------------------------------------------
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+
+# ------------------------------------------------------------------------------
+# 4. DuckDNS (DNS Dinâmico Gratuito)
+# ------------------------------------------------------------------------------
+# Registre seu subdomínio em https://www.duckdns.org/domains
+duckdns_domain = "guilermiii"
+duckdns_token  = "seu-token-duckdns-aqui"
+
+# ------------------------------------------------------------------------------
+# 5. Parâmetros de Rede VCN
+# ------------------------------------------------------------------------------
+vcn_cidr    = "10.0.0.0/16"
+subnet_cidr = "10.0.1.0/24"

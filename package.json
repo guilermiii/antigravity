@@ -1,0 +1,17 @@
+{
+  "name": "antigravity-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:portfolio": "npm --workspace=apps/portfolio run dev",
+    "dev:crud": "npm --workspace=apps/crud-frontend run dev",
+    "test:portfolio": "npm --workspace=apps/portfolio run test",
+    "test:crud": "npm --workspace=apps/crud-frontend run test",
+    "test": "npm run test:portfolio && npm run test:crud",
+    "build:portfolio": "npm --workspace=apps/portfolio run build",
+    "build:crud": "npm --workspace=apps/crud-frontend run build",
+    "build": "npm run build:portfolio && npm run build:crud"
+  }
+}
