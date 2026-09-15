@@ -146,6 +146,15 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Prepare Environment and SSL Mock for Docker Compose
+        run: |
+          cp .env.example .env
+          mkdir -p certbot/conf/live/guilermiii.duckdns.org certbot/www
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout certbot/conf/live/guilermiii.duckdns.org/privkey.pem \
+            -out certbot/conf/live/guilermiii.duckdns.org/fullchain.pem \
+            -subj '/CN=localhost'
+
       - name: Build and Launch Docker Compose Stack
         run: |
           docker compose up -d --build
