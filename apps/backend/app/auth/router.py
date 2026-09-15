@@ -5,9 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.auth.config import FRONTEND_URL
+from app.auth.config import ENVIRONMENT, FRONTEND_URL
 from app.auth.providers import github_provider, google_provider
 from app.auth.security import (
+    create_access_token,
     generate_oauth_state,
     get_current_user,
     verify_oauth_state,
@@ -140,3 +141,39 @@ def get_me(current_user: User = Depends(get_current_user)) -> Dict[str, Any]:
 )
 def logout():
     return {"message": "Sessão encerrada com sucesso."}
+
+
+@router.post(
+    "/test-token",
+    summary="Gerar token de teste em ambiente de desenvolvimento",
+    include_in_schema=False,
+)
+def get_test_token(db: Session = Depends(get_db)):
+    """Gera um token JWT para automação e testes E2E quando em ambiente de desenvolvimento."""
+    if ENVIRONMENT not in ["development", "test"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Endpoint de teste disponível apenas em ambiente de desenvolvimento.",
+        )
+    test_user = db.query(User).filter(User.email == "e2e_runner@example.com").first()
+    if not test_user:
+        test_user = User(
+            nome="E2E",
+            sobrenome="Runner",
+            email="e2e_runner@example.com",
+            is_active=True,
+        )
+        db.add(test_user)
+        db.commit()
+        db.refresh(test_user)
+
+    token = create_access_token(
+        data={
+            "sub": str(test_user.id),
+            "email": test_user.email,
+            "name": f"{test_user.nome} {test_user.sobrenome}",
+            "provider": "system",
+        }
+    )
+    return {"access_token": token, "token_type": "bearer"}
+
